@@ -4,7 +4,8 @@
   <img src="assets/xlab-boot.gif" alt="DXO ONE XLAB boot sequence" width="680">
 </p>
 
-<!-- 启动动画配色取自 UI-设计规范 v1.2：#060709 / #F0EFE7 / #93928C / #2F2E28 / #4EADB9 -->
+<!-- 启动动画复刻 docs/UI-样张-嘻哈.html 的 splash 序列（单片镜头盖竖直下滑 → 光圈闪 → 点阵逐列扫字）；
+     色板取自 UI-设计规范 v1.2：#060709 / #F0EFE7 / #93928C / #4EADB9，机身 6 级灰阶由 --fg 与 --bg 在 OKLCH 空间混合 -->
 
 **DxO ONE 机内滤镜补丁** —— 在相机菜单里直接切换十档胶片风格，不用后期。
 
