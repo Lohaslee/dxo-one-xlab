@@ -91,10 +91,32 @@ cd patch && shasum -a 256 -c SHA256SUMS.txt
 ```
 
 把 `patch/autoexec.ash`、`patch/ph_probe.ash`、`patch/ph_menu.bin` 复制到**卡根目录**；
-把 `patch/DXO_FILTERS/` 整个目录（10 个 `.bin`）复制到**卡根目录**。
+把 `patch/DXO_FILTERS/` 整个目录（10 个 `.bin`）复制到**卡根目录**；
+把 `patch/PH_DIAG/` 目录复制到**卡根目录**（里面只有一个 `.gitkeep` 占位）。
 
-3. 逐文件回读 SHA-256，与各自的 `SHA256SUMS.txt` 比对；
-4. 正常弹出卷后拔卡，装回相机开机，**等约 3 秒**再触屏。
+> ⚠️ **`PH_DIAG/` 目录必须存在**。相机端的 ash 脚本没有 `mkdir` 命令，
+> 采集脚本要往 `PH_DIAG\` 里写诊断文件；目录不在时采集会静默失败
+> （菜单与滤镜仍正常工作，只是没有诊断数据）。
+> 若在相机里格式化过卡，需要重新把这个空目录拷进去。
+
+- 逐文件回读 SHA-256，与各自的 `SHA256SUMS.txt` 比对；
+- 正常弹出卷后拔卡，装回相机开机，**等约 3 秒**再触屏。
+
+### 卡上的诊断与日志
+
+Build 66 起，所有诊断文件都收在 `PH_DIAG/` 里，卡根目录不再堆积：
+
+| 文件 | 说明 | 增长情况 |
+|---|---|---|
+| `PH_DIAG/ph_*.bin` | 诊断信标：`p/f/m/v` 四组按档位编号（页标记、帧缓冲、装表记录、视频槽），另有启动态、钩子字、环形缓冲、tick 等 | **固定文件名、每次开机覆盖**；`ph_probe.ash` 里共 66 条 `savebin`，实际落盘数取决于本轮走到哪一步（实测一轮 41 个文件、约 27 KB） |
+| `console_debug.txt` | 固件调试日志（卡根目录） | 每次开机由脚本先 `rm` 再重开，**只保留本次运行**，实测 26–70 KB |
+
+> 删除用的 `rm` 命令已实机验证可用；`del` / `delete` / `rename` 在该 shell 中**不存在**
+> （脚本遇到未知命令不会中断，会继续往下执行）。
+>
+> **要看崩溃现场时**：去掉 `autoexec.ash` 第一行的 `rm c:\console_debug.txt`，
+> 日志就会跨重启保留（代价是会持续累积，抓完再把这行加回去）。
+
 
 > ⚠️ 不要覆盖或删除 `DCIM/`、`touch_prefs.bin`、`dxot/`；
 > 不要混用不同 Build 的 `ph_*` 信标；回退请恢复对应版本的整套文件。
@@ -128,13 +150,14 @@ DxO ONE 机内滤镜补丁装到我的相机 SD 卡上。严格按步骤执行�
 4. deps/touch_prefs.bin：卡根没有才复制；已有则跳过并告诉我。
 5. 复制 patch/autoexec.ash、patch/ph_probe.ash、patch/ph_menu.bin 到卡根，覆盖同名文件。
 6. 复制 patch/DXO_FILTERS/ 整个目录到卡根（10 个 lut_*.bin），覆盖同名文件。
-7. 逐文件回读卡上内容并算 SHA-256 与仓库清单比对：13 个补丁件（3 个 ph_* + 10 个 lut_*.bin）
+7. 在卡根创建空目录 PH_DIAG/（相机端 ash 没有 mkdir，必须由电脑建；已存在就跳过）。
+8. 逐文件回读卡上内容并算 SHA-256 与仓库清单比对：13 个补丁件（3 个 ph_* + 10 个 lut_*.bin）
    加 4 个 dxot 件，共 17 件；若第 4 步复制了 touch_prefs.bin 则再多 1 件。
-8. 执行 sync，然后正常弹出卷。
+9. 执行 sync，然后正常弹出卷。
 
 【汇报】
-逐条列出：每个文件的校验结果（通过／不一致）、被跳过的项（例如原有的 touch_prefs.bin）、
-最终是否成功弹出。任何一步失败就停下说明原因，不要"先修一下再说"。
+逐条列出：每个文件的校验结果（通过／不一致）、PH_DIAG/ 是否已就位、被跳过的项（例如原有的
+touch_prefs.bin）、最终是否成功弹出。任何一步失败就停下说明原因，不要"先修一下再说"。
 ````
 
 装好后装回相机开机，**等约 3 秒**再触屏：菜单里出现第六页、上下切档、左右翻页即为生效。
@@ -147,7 +170,7 @@ DxO ONE 机内滤镜补丁装到我的相机 SD 卡上。严格按步骤执行�
 | 方案 | 做法 | 适用 |
 |---|---|---|
 | **A. 停用（推荐）** | 把卡根 `autoexec.ash` 改名为 `autoexec.ash.disabled` | 只想暂时退回原厂；文件全留着，改回名字即恢复 |
-| **B. 彻底清理** | 删除 `autoexec.ash`、`ph_menu.bin`、`ph_probe.ash`、`ph_done.bin`、`DXO_FILTERS/`、`dxot/` | 准备把卡用在别处 |
+| **B. 彻底清理** | 删除 `autoexec.ash`、`ph_menu.bin`、`ph_probe.ash`、`PH_DIAG/`、`DXO_FILTERS/`、`dxot/` | 准备把卡用在别处 |
 
 两种方案都**必须保留** `DCIM/` 与 `touch_prefs.bin`。后者是你的档位 / 曝光 / 白平衡 /
 MF 距离记忆，删掉会让设置回默认。
@@ -161,7 +184,7 @@ MF 距离记忆，删掉会让设置回默认。
 
 【先问我要哪一种，不要自己替我选】
 A. 停用（可逆）：把卡根 autoexec.ash 改名为 autoexec.ash.disabled，其余文件原样保留。
-B. 彻底清理：删除卡根 autoexec.ash、ph_menu.bin、ph_probe.ash、ph_done.bin，
+B. 彻底清理：删除卡根 autoexec.ash、ph_menu.bin、ph_probe.ash、PH_DIAG/，
    以及 DXO_FILTERS/ 和 dxot/ 两个目录。
 
 【安全红线】
@@ -171,7 +194,7 @@ B. 彻底清理：删除卡根 autoexec.ash、ph_menu.bin、ph_probe.ash、ph_do
 - 结束用系统正常弹出卷。
 
 【验收】
-列出卡根剩余的文件与目录；确认已没有 autoexec.ash（B 方案还应没有 DXO_FILTERS/ 与 dxot/）；
+列出卡根剩余的文件与目录；确认已没有 autoexec.ash（B 方案还应没有 DXO_FILTERS/、dxot/ 与 PH_DIAG/）；
 确认 DCIM/ 与 touch_prefs.bin 仍在。
 ````
 
@@ -184,11 +207,15 @@ B. 彻底清理：删除卡根 autoexec.ash、ph_menu.bin、ph_probe.ash、ph_do
 | 60 | 名称居中、小字精简（原厂小字符） | 长期回退基线；菜单包 4424 B，magic `0x5047353a`，多次实机使用 |
 | ~~61~~ | ~~自定义 8×16 大字体~~ | **已撤回**：实机字号过大、辨识度差 |
 | 62–65 | 字体方案离线迭代（8×14 → 索引修正 → 细体 → 等宽像素风） | **均未写卡**，仅构建与离线渲染验证，未对外发布 |
-| **66** | **自制等宽像素字体 + 笔画加粗** | **当前发布版本**；菜单包 `ph_menu.bin` 5268 B，magic `0x50473541`。已写卡部署、13 件写入校验通过，**菜单名已实机确认显示正常** |
+| **66** | **自制等宽像素字体 + 笔画加粗 + 诊断目录化** | **当前发布版本**；菜单包 `ph_menu.bin` 5268 B，magic `0x50473541`。已写卡部署、13 件写入校验通过，**菜单名已实机确认显示正常** |
 
-Build 66 与 60 只有 `ph_menu.bin` 一件不同（5268 B vs 4424 B），
-其余 12 件（`autoexec.ash`、`ph_probe.ash`、10 个 LUT 包）逐字节一致。
-无论你手上是 60 还是 61，都只需替换 `patch/ph_menu.bin` 这一件，其余文件不必重装。
+Build 66 相对 60 有 **3 件不同**：`ph_menu.bin`（5268 B vs 4424 B，字体）、
+`autoexec.ash`（477 B vs 445 B，新增开机 `rm` 日志轮转）、
+`ph_probe.ash`（3509 B vs 2981 B，诊断文件改写入 `PH_DIAG\`）。
+10 个 LUT 包逐字节一致。
+
+从 60 / 61 升级请**三件一起换**（只换 `ph_menu.bin` 会有诊断文件写错位置、
+日志继续累积的问题），并额外创建 `PH_DIAG/` 目录。
 
 字体细节：23 个字符（`-025ABEFGHIKLNOPRSTUVWY`）覆盖全部滤镜名，u16 行偏移、24 B/字符、
 96 B ASCII 索引表；绘制路径为 `menu_text_at` 居中 → `menu_draw_text` 查索引 →
@@ -198,7 +225,7 @@ Build 66 与 60 只有 `ph_menu.bin` 一件不同（5268 B vs 4424 B），
 
 | 路径 | 内容 |
 |---|---|
-| `patch/` | Build 66 的 13 件构建产物 + `SHA256SUMS.txt` |
+| `patch/` | Build 66 的 13 件构建产物 + `SHA256SUMS.txt` + `PH_DIAG/`（空目录占位，**必须一起拷到卡根**） |
 | `deps/` | 5 个第三方运行时依赖 + `SHA256SUMS.txt`（**非本仓库原创**） |
 | `DEPENDENCIES.md` | 依赖来源、署名、适用固件与部署规则 |
 | `THIRD_PARTY.md` | 第三方材料与商标声明 |

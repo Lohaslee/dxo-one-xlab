@@ -28,6 +28,9 @@ patch/*
 !patch/ph_probe.ash
 !patch/ph_menu.bin
 !patch/SHA256SUMS.txt
+!patch/PH_DIAG/
+patch/PH_DIAG/*
+!patch/PH_DIAG/.gitkeep
 !patch/DXO_FILTERS/
 patch/DXO_FILTERS/*
 !patch/DXO_FILTERS/lut_orig.bin

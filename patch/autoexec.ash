@@ -1,3 +1,4 @@
+rm c:\console_debug.txt
 t dxo console 8
 echo PH-SESSION-START
 cd c:\dxot
@@ -18,4 +19,4 @@ echo PH-MENU-LOADED
 echo PH-SUB-START
 c:\ph_probe.ash
 echo PH-SUB-END
-savebin c:\ph_done.bin 0x08c00000 l 0x4
+savebin c:\PH_DIAG\ph_done.bin 0x08c00000 l 0x4
