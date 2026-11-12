@@ -47,9 +47,9 @@ v26 源码压缩包（第三方完整研究工程）及任何原厂固件镜像�
 
 | 档位 | 文件 | 来源性质 |
 |---|---|---|
-| ORIGINAL | `lut_orig.bin` | 透传档，保留源影调；非原厂 CC 表副本 |
-| VELVIA / GOLD200 / PORTRA / HP5 | `lut_vel.bin` 等 | 由第三方 `.cube` 素材转换而来 |
-| RICOH POSI / RICOH HIBW | `lut_posi.bin` / `lut_hibw.bin` | 由第三方 Ricoh GR II 风格 `.cube` 转换而来 |
+| NONE | `lut_orig.bin` | 透传档，保留源影调；非原厂 CC 表副本 |
+| VELVIA / G200 / PORTRA / HP5 | `lut_vel.bin` 等 | 由第三方 `.cube` 素材转换而来 |
+| R-POSI / R-HIBW | `lut_posi.bin` / `lut_hibw.bin` | 由第三方 Ricoh GR II 风格 `.cube` 转换而来 |
 | FUYUNO / KYUSHU / SATOBI | `lut_fuyu.bin` 等 | 由第三方 Pentax K12 风格 `.cube` 转换而来 |
 
 **本仓库不包含任何 `.cube` 源文件**，只包含转换后的机内表。上述第三方 LUT

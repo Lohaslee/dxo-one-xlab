@@ -50,18 +50,18 @@
 
 | # | 菜单名 | 文件 | 说明 |
 |---:|---|---|---|
-| 0 | ORIGINAL | `lut_orig.bin` | 透传档，保留源影调 |
+| 0 | NONE | `lut_orig.bin` | 透传档，保留源影调 |
 | 1 | VELVIA | `lut_vel.bin` | |
-| 2 | GOLD200 | `lut_gold.bin` | |
+| 2 | G200 | `lut_gold.bin` | |
 | 3 | PORTRA | `lut_port.bin` | |
 | 4 | HP5 | `lut_hp5.bin` | 源素材为黑白风格 |
-| 5 | RICOH POSI | `lut_posi.bin` | |
-| 6 | RICOH HIBW | `lut_hibw.bin` | 源素材为黑白风格 |
+| 5 | R-POSI | `lut_posi.bin` | Ricoh Positive Film |
+| 6 | R-HIBW | `lut_hibw.bin` | Ricoh Hi-Contrast B&W，源素材为黑白风格 |
 | 7 | FUYUNO | `lut_fuyu.bin` | 冬野 |
 | 8 | KYUSHU | `lut_kyus.bin` | 九秋 |
 | 9 | SATOBI | `lut_sato.bin` | |
 
-除 ORIGINAL 外，九档均按「源 LUT 原样直出 / 100% 强度 / 不叠加机内影调补偿」
+除 NONE 外，九档均按「源 LUT 原样直出 / 100% 强度 / 不叠加机内影调补偿」
 处理；源素材本身是黑白的由源 LUT 自己决定，补丁不额外去色。
 
 > 上述 CC 表的输入线性 / 输出 sRGB 匹配未做仪器校准，不宣称与原机或胶片
