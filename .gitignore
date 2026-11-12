@@ -1,0 +1,80 @@
+# ==============================================================================
+# dxo-one-open · 发布白名单
+#
+# 策略：默认拒绝全部，只放行 patch/ 里的 13 件构建产物 + 仓库标准文件。
+# 理由：本地工作区 4.1 GB，含原厂固件、官方安装包、实机照片、实验档案、
+#       项目记忆与客户端源码（尚未发布）。黑名单极易漏项。
+#
+# 客户端 / 工具链 / 研究文档就绪后，再逐项放行，不要直接删掉 /*。
+# ==============================================================================
+
+# ---- 第 1 层：根层默认全部拒绝 ----------------------------------------------
+/*
+
+# ---- 第 2 层：根层白名单 ----------------------------------------------------
+!.gitignore
+!.gitattributes
+!README.md
+!LICENSE
+!CONTRIBUTING.md
+!THIRD_PARTY.md
+!patch/
+
+# ---- 第 3 层：patch/ 内部逐个放行 --------------------------------------------
+patch/*
+!patch/autoexec.ash
+!patch/ph_probe.ash
+!patch/ph_menu.bin
+!patch/SHA256SUMS.txt
+!patch/DXO_FILTERS/
+patch/DXO_FILTERS/*
+!patch/DXO_FILTERS/lut_orig.bin
+!patch/DXO_FILTERS/lut_vel.bin
+!patch/DXO_FILTERS/lut_gold.bin
+!patch/DXO_FILTERS/lut_port.bin
+!patch/DXO_FILTERS/lut_hp5.bin
+!patch/DXO_FILTERS/lut_posi.bin
+!patch/DXO_FILTERS/lut_hibw.bin
+!patch/DXO_FILTERS/lut_fuyu.bin
+!patch/DXO_FILTERS/lut_kyus.bin
+!patch/DXO_FILTERS/lut_sato.bin
+
+# ---- 第 4 层：全局垃圾与隐私文件（任何层级都拒绝） --------------------------
+**/.DS_Store
+**/._*
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/target/
+**/deps/
+**/*.log
+**/console_debug*.txt
+**/touch_prefs*.bin
+**/.workbuddy/
+**/DCIM/
+
+# 注意：这里**不能**加 `**/*.bin` —— patch/ 里的补丁表与菜单包本身就是 .bin，
+# 一律靠上面第 3 层的精确白名单控制。
+
+# ---- 第 5 层：高危目录硬隔离（双保险，禁止任何情况下放行） -------------------
+/00_备份/
+/实验/
+/固件镜像/
+/DxO_ONE_USB-C_v26_手动安装包/
+/一键安装器/
+/Light口版本下这个/
+/成品/
+/成品2/
+/Rust重构/
+/工具/
+/.tmp_lut/
+/.workbuddy/
+
+# 说明：
+#   固件镜像/          原厂固件 3.2.0 完整镜像 + sections + ROMFS 提取内容
+#   DxO_ONE_USB-C_v26_* 官方安装包与第三方 v26 触屏补丁整包（含其源码 zip）
+#   实验/              实机照片、卡上日志、离线仿真产物、.venv
+#   00_备份/           存储卡逐文件备份（含 DCIM 与 touch_prefs）
+#   .workbuddy/        项目记忆（卡 UUID、设备号、本地路径）+ 开源准备资料
+#   Rust重构/ 工具/    客户端与工具链，尚未发布
+# ==============================================================================

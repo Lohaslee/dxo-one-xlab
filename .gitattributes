@@ -1,0 +1,23 @@
+# 行尾与文本归一化
+* text=auto
+
+# 文本：统一 LF
+*.md            text eol=lf
+*.ash           text eol=lf
+*.txt           text eol=lf
+SHA256SUMS.txt  text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+
+# 二进制：禁止 diff / 禁止行尾转换（补丁表与菜单包必须逐字节保真）
+*.bin   binary
+*.jpg   binary
+*.jpeg  binary
+*.png   binary
+*.dng   binary
+*.zip   binary
+*.exe   binary
+*.ico   binary
+
+# GitHub 语言统计
+*.md  linguist-documentation
