@@ -39,6 +39,11 @@ patch/DXO_FILTERS/*
 !patch/DXO_FILTERS/lut_kyus.bin
 !patch/DXO_FILTERS/lut_sato.bin
 
+# README 启动动画（assets/ 下只放行这一个文件）
+!assets/
+assets/*
+!assets/xlab-boot.gif
+
 # ---- 第 4 层：全局垃圾与隐私文件（任何层级都拒绝） --------------------------
 **/.DS_Store
 **/._*

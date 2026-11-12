@@ -11,6 +11,7 @@ SHA256SUMS.txt  text eol=lf
 
 # 二进制：禁止 diff / 禁止行尾转换（补丁表与菜单包必须逐字节保真）
 *.bin   binary
+*.gif   binary
 *.jpg   binary
 *.jpeg  binary
 *.png   binary

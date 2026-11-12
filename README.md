@@ -1,5 +1,11 @@
 # dxo-one-xlab
 
+<p align="center">
+  <img src="assets/xlab-boot.gif" alt="DXO ONE XLAB boot sequence" width="680">
+</p>
+
+<!-- 启动动画配色取自 UI-设计规范 v1.2：#060709 / #F0EFE7 / #93928C / #2F2E28 / #4EADB9 -->
+
 **DxO ONE 机内滤镜补丁** —— 在相机菜单里直接切换十档胶片风格，不用后期。
 
 > `xlab` 是围绕 DxO ONE 做实验的地方：补丁、客户端、工具链与逆向记录都在这里迭代。
