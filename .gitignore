@@ -21,6 +21,7 @@
 !DEPENDENCIES.md
 !patch/
 !deps/
+!自定义置入滤镜流程/
 
 # ---- 第 3 层：patch/ 内部逐个放行（Build 61 的 13 件 + 校验清单） --------------
 patch/*
@@ -60,6 +61,14 @@ deps/dxot/*
 !assets/
 assets/*
 !assets/xlab-boot.gif
+
+# ---- 第 3 层 D：自定义置入滤镜流程（转换内核 + 测试 + 壳 + 文档） --------------
+# cube2dxo.py 与 工具/cube2dxo.py 逐字节一致（sha256 639e1138…），改动须双向同步
+自定义置入滤镜流程/*
+!自定义置入滤镜流程/cube2dxo.py
+!自定义置入滤镜流程/test_cube2dxo.py
+!自定义置入滤镜流程/转换滤镜.command
+!自定义置入滤镜流程/README.md
 
 # ---- 第 4 层：全局垃圾与隐私文件（任何层级都拒绝） --------------------------
 **/.DS_Store
