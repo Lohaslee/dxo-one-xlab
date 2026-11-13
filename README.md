@@ -93,6 +93,15 @@
 2. 已完整备份卡上 `autoexec.ash`、`touch_prefs.bin`、`dxot/` 与 `DCIM/`；
 3. 已读完 [DEPENDENCIES.md](DEPENDENCIES.md) —— 特别是 `touch_prefs.bin` 绝不能盲目覆盖。
 
+> **正在用其他触屏补丁（如林达 USB-C v26）？先停一下。**
+> 两个版本的固件内存地址完全不同，**互相不兼容**。把本套补丁复制进卡会
+> 覆盖卡根的 `autoexec.ash`（两套都以它为开机入口）——你的触屏补丁会立刻
+> 失效，而本套在 USB-C 固件上又装不上，结果就是开机变回原厂行为。
+> USB-C 用户请直接用林达原版 v26；误装后恢复只需：删掉本套 6 项
+> （`autoexec.ash`、`ph_probe.ash`、`ph_menu.bin`、`DXO_FILTERS/`、
+> `dxot/`、`PH_DIAG/`），再把 v26 的 `autoexec.ash` 复制回卡根（
+> `p*.bin` 与 `touch_prefs.bin` 未被本套触碰，无需重装）。
+
 **第一步：运行时依赖（只需装一次）**
 
 ```bash
