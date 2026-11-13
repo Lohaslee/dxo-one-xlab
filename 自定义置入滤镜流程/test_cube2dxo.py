@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """独立小型夹具验证轴序、输入域、量化与坏输入；不生成成品或访问存储卡。"""
+import os
 import struct
 import tempfile
 import unittest
@@ -7,6 +8,8 @@ from pathlib import Path
 
 import numpy as np
 import cube2dxo as c
+
+HAS_STOCK = os.path.exists(c.STOCK)   # GitHub 发行版不含固件提取物，相关测试跳过
 
 
 def cube_text(header="", transform=lambda r, g, b: (r, g, b)):
@@ -41,7 +44,8 @@ class CubeTests(unittest.TestCase):
         np.testing.assert_allclose(c.sample(lut, [[0, 1, 2]]), [[0.25, 0.5, 0.75]])
         _, inv = c.neutral_inverse(lut)
         self.assertAlmostEqual(float(inv[512]), 1.0, places=5)
-        h, stock, tail = c.decode_table(c.STOCK)
+        # neutral 对恒等 LUT 的复合必须还原参照（恒等参照版，发行版可跑）
+        _, stock, _ = c.identity_stock()
         actual = c.compose(lut, stock, tone="neutral")
         np.testing.assert_allclose(actual, stock, atol=1e-6)
 
@@ -67,6 +71,28 @@ class CubeTests(unittest.TestCase):
             with self.subTest(text=text[:90]), self.assertRaises(ValueError):
                 self.read(text)
 
+    def test_identity_stock_is_wellformed(self):
+        h, cube, tail = c.identity_stock()
+        self.assertEqual(h, struct.pack("<II", 1, 1) + bytes(c.BODY_OFF - 8))
+        self.assertEqual(len(tail), 1024)
+        np.testing.assert_allclose(cube, c.build_grid().astype(np.float32))
+        # 直通复合：恒等 .cube（输出=输入）必须逐字节还原参照自身
+        lut = self.read(cube_text())
+        out = c.encode_table(h, c.compose(lut, cube, tone="pass"), tail)
+        ref = c.encode_table(h, cube, tail)
+        self.assertEqual(out[0x80:0x4080], ref[0x80:0x4080])
+
+    def test_direct_applies_lut_to_grid(self):
+        # 直通模式数学：compose(lut, identity) == sample(lut, grid)。
+        # 用红蓝交换 LUT 验证：纯红输入映射为纯蓝，纯蓝映射为纯红，绿保持。
+        _, stock, _ = c.identity_stock()
+        lut = self.read(cube_text(transform=lambda r, g, b: (b, g, r)))
+        out = c.compose(lut, stock, tone="pass")
+        np.testing.assert_allclose(out[15, 0, 0], [0.0, 0.0, 1.0], atol=1e-6)
+        np.testing.assert_allclose(out[0, 0, 15], [1.0, 0.0, 0.0], atol=1e-6)
+        np.testing.assert_allclose(out[0, 15, 0], [0.0, 1.0, 0.0], atol=1e-6)
+
+    @unittest.skipUnless(HAS_STOCK, "需要原厂参照表（GitHub 发行版不含）")
     def test_original_binary_fixture_and_roundtrip(self):
         h, stock, tail = c.decode_table(c.STOCK)
         original = Path(c.STOCK).read_bytes()
@@ -76,6 +102,7 @@ class CubeTests(unittest.TestCase):
         self.assertEqual((word & 1023, word >> 10 & 1023, word >> 20 & 1023), (1023, 0, 17))
         # 该断言仅锁定原厂字节布局，不宣称硬件输入域已确证。
 
+    @unittest.skipUnless(HAS_STOCK, "需要原厂参照表（GitHub 发行版不含）")
     def test_quantization_error_bound(self):
         h, _, tail = c.decode_table(c.STOCK)
         values = np.random.default_rng(50).random((16, 16, 16, 3))
@@ -84,6 +111,7 @@ class CubeTests(unittest.TestCase):
         channels = np.stack([words & 1023, words >> 10 & 1023, words >> 20 & 1023], axis=-1)
         self.assertLessEqual(float(np.max(np.abs(channels.reshape(values.shape) / 1023 - values))), 0.5 / 1023)
 
+    @unittest.skipUnless(HAS_STOCK, "需要原厂参照表（GitHub 发行版不含）")
     def test_bad_binary_header_and_nan(self):
         h, stock, tail = c.decode_table(c.STOCK)
         with tempfile.TemporaryDirectory() as folder:

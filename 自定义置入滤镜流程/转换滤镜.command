@@ -14,11 +14,10 @@ fi
 for f in "$@"; do
   if [ ! -f "$f" ]; then echo "跳过（找不到）：$f"; continue; fi
   echo "--- $(basename "$f") ---"
-  "$PY" "$DIR/cube2dxo.py" "$f" --tone neutral
+  "$PY" "$DIR/cube2dxo.py" "$f" --tone pass --direct
   echo
 done
-echo "输出目录：<仓库根>/成品/lut/"
-echo "每个 LUT 生成 <名字>_neutral.bin（整表 17,536 B）与 _s0..s4.bin（5 个槽载荷）"
+echo "输出目录：<仓库根>/成品/lut/（文件名带 _direct 后缀）"
 echo "置入方法见同目录 README.md"
 echo
 echo "按回车关闭窗口"

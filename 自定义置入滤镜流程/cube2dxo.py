@@ -17,6 +17,13 @@ DxO ONE 机内 CC 3D LUT 格式转换
 原厂 CC 表承担影调与色彩处理；其输出是否等同目标 .cube 要求的输入编码，
 必须由素材说明和硬件链路另行确认。文件长度与解码回写自检不能证明输入域正确。
 neutral 是主动抵消 LUT 灰轴影调的风格选项，不是 Log/色域转换。
+
+直通模式（--direct）：
+      新表(输入) = 目标LUT( 输入 )
+参照表用内存构造的恒等立方体，不读任何文件——GitHub 发行版不含固件提取物
+（许可红线），直通让发布目录自包含。与复合配方的差异：少了原厂基础影调层，
+输出是纯滤镜直出；尾部 1024 B 曲线填 0（原厂表上实测改动尾部无效果，
+但直通产物本身未实机验证）。
 """
 import os
 import re
@@ -183,6 +190,14 @@ def build_grid():
     return np.stack([r, g, b], axis=-1)          # [r][g][b][3]
 
 
+def identity_stock():
+    """直通模式的参照表：恒等立方体（节点值 = 自身坐标）+ 标准头 + 全零尾。
+    喂给 compose 后 mid == 网格坐标本身，复合退化为纯 LUT 栅格化。
+    不读任何文件，GitHub 发行版因此自包含。"""
+    header = struct.pack("<II", 1, 1) + bytes(BODY_OFF - 8)
+    return header, build_grid().astype(np.float32), bytes(1024)
+
+
 def neutral_inverse(lut):
     """算出 LUT 中性轴响应的反函数表：给定目标亮度 t，返回应喂入的 x。
     这是有损的影调取消，不是 Log 转换，也不保证保持饱和度或色相。
@@ -254,18 +269,41 @@ if __name__ == "__main__":
     ap.add_argument("--strength", type=float, default=0.65,
                     help="tone=blend 时 neutral 的权重 0..1（默认 0.65）")
     ap.add_argument("--bw", action="store_true", help="转成黑白（去色后再套 LUT）")
+    ap.add_argument("--direct", action="store_true",
+                    help="直通模式：不读原厂参照表（GitHub 发行版不含固件提取物），"
+                         "输出 = 纯滤镜直出，不含原厂基础影调层")
     ap.add_argument("--name", default=None, help="输出文件名（不含扩展名）")
     ap.add_argument("--outdir", default=None, help="输出目录，默认 成品/lut")
     args = ap.parse_args()
 
-    header, stock_cube, tail = decode_table(STOCK)
+    if args.direct:
+        header, stock_cube, tail = identity_stock()
+    else:
+        try:
+            header, stock_cube, tail = decode_table(STOCK)
+        except FileNotFoundError:
+            raise SystemExit(
+                "找不到原厂参照表（GitHub 发行版不含固件提取物，许可红线不允许附带）。\n"
+                "两种选择：\n"
+                "  1) 加 --direct 改用直通模式：纯滤镜直出，无需任何固件文件，\n"
+                "     但与成品十档的复合配方不同（少了原厂基础影调层）；\n"
+                "  2) 按 README「原厂参照表」一节自行从官方固件提取后放到：\n"
+                f"     {STOCK}")
 
-    # --- 自检：恒等复合必须还原出原厂表 ---
-    ident = encode_table(header, compose(None, stock_cube), tail)
-    ref = open(STOCK, "rb").read()
-    body_same = sum(1 for a, b in zip(ident[0x80:0x4080], ref[0x80:0x4080]) if a == b)
-    print(f"格式自检：LUT 区还原 {body_same}/{BODY_LEN} ({body_same/BODY_LEN*100:.2f}%)")
-    assert body_same == BODY_LEN, "格式理解有误，中止"
+    if args.direct:
+        # 直通自检：恒等参照的复合往返必须逐字节还原参照自身
+        ident = encode_table(header, compose(None, stock_cube), tail)
+        ref = encode_table(*identity_stock())
+        body_same = sum(1 for a, b in zip(ident[0x80:0x4080], ref[0x80:0x4080]) if a == b)
+        print(f"格式自检（直通）：恒等往返 {body_same}/{BODY_LEN}")
+        assert body_same == BODY_LEN, "恒等参照往返不一致，中止"
+    else:
+        # --- 自检：恒等复合必须还原出原厂表 ---
+        ident = encode_table(header, compose(None, stock_cube), tail)
+        ref = open(STOCK, "rb").read()
+        body_same = sum(1 for a, b in zip(ident[0x80:0x4080], ref[0x80:0x4080]) if a == b)
+        print(f"格式自检：LUT 区还原 {body_same}/{BODY_LEN} ({body_same/BODY_LEN*100:.2f}%)")
+        assert body_same == BODY_LEN, "格式理解有误，中止"
 
     if not args.cube:
         raise SystemExit(0)
@@ -273,6 +311,8 @@ if __name__ == "__main__":
     name = args.name or os.path.splitext(os.path.basename(args.cube))[0]
     name = re.sub(r"[^0-9A-Za-z._-]+", "_", name).strip("_")   # FAT32 上避免空格/中文
     size, lut = read_cube(args.cube)
+    if args.direct:
+        print("警示：直通模式——输出为纯滤镜直出，未与原厂影调复合，尾部曲线填 0（未实机验证）。")
     print("警示：尚未独立确认相机 CC 输出与源 LUT 输入编码一致；neutral 不是 Log 转换。")
     if args.tone in ("neutral", "blend"):
         print("警示：neutral/blend 会主动抵消灰轴影调，并可能改变彩色响应及压平端点。")
@@ -283,6 +323,8 @@ if __name__ == "__main__":
     outdir = args.outdir or os.path.join(ROOT, "成品", "lut")
     os.makedirs(outdir, exist_ok=True)
     suffix = "" if args.tone == "pass" else f"_{args.tone}"
+    if args.direct:
+        suffix += "_direct"
     if args.bw:
         suffix += "_BW"
     out = os.path.join(outdir, f"{name}{suffix}.bin")
