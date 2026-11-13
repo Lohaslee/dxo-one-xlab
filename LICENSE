@@ -51,13 +51,22 @@ Apache-2.0 等开放许可证的权利；在 LICENSE 明示变更之前，以本
 本项目与 DxO Labs / DxO ONE 品牌无任何关联，未获其授权或认可。
 向设备写入数据的全部风险由使用者自行承担，详见 [README.md](README.md)。
 
-## 4. 第三方运行时依赖 —— 不适用本条款
+## 4. 第三方内容 —— 不适用本条款
 
-`deps/` 下的 5 个文件（`dxot/m01.ash`、`dxot/m02.ash`、`dxot/a.bin`、
-`dxot/b.bin`、`touch_prefs.bin`）来自**林达 (@PENTAX_FA43mm)** 的 v26 触屏补丁
-与 **Eli** 的 iOS / Lightning 固件移植版，版权归原作者。
-本仓库**既不主张权利、也不授予 sublicense**，未做任何修改，
+**（a）`deps/` 下的 5 个运行时依赖**（`dxot/m01.ash`、`dxot/m02.ash`、
+`dxot/a.bin`、`dxot/b.bin`、`touch_prefs.bin`）来自**林达 (@PENTAX_FA43mm)**
+的 v26 触屏补丁与 **Eli** 的 iOS / Lightning 固件移植版，版权归原作者。
+
+**（b）`USB-C触屏补丁v26/` 整目录**（37 件）是林达 v26 触屏补丁的
+USB-C 原生版完整安装包，版权归原作者。
+
+以上两者本仓库**既不主张权利、也不授予 sublicense**，未做任何修改，
 本 LICENSE 第 1～3 节不适用于这些文件。
+
+**（c）`自定义置入滤镜流程/stock/Imx183_Cc_Still1.bin`** 是 DxO Labs 的
+版权内容（自原厂固件提取的相机色彩参照表），经发布者决定随包分发，
+仅供个人研究使用；本 LICENSE **不授予**该文件任何权利，权利人可通过
+GitHub Issues 要求移除。
 
 其权利状况、署名、来源包与部署规则见 [DEPENDENCIES.md](DEPENDENCIES.md)
 与 [THIRD_PARTY.md](THIRD_PARTY.md)。权利人可通过 GitHub Issues 要求移除。

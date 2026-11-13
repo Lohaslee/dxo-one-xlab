@@ -22,6 +22,7 @@
 !patch/
 !deps/
 !自定义置入滤镜流程/
+!USB-C触屏补丁v26/
 
 # ---- 第 3 层：patch/ 内部逐个放行（Build 61 的 13 件 + 校验清单） --------------
 patch/*
@@ -62,13 +63,25 @@ deps/dxot/*
 assets/*
 !assets/xlab-boot.gif
 
-# ---- 第 3 层 D：自定义置入滤镜流程（转换内核 + 测试 + 壳 + 文档） --------------
+# ---- 第 3 层 D：自定义置入滤镜流程（转换内核 + 测试 + 壳 + 文档 + 原厂参照表） --
 # cube2dxo.py 与 工具/cube2dxo.py 逐字节一致（sha256 639e1138…），改动须双向同步
+# stock/Imx183_Cc_Still1.bin 是 DxO 版权内容，经发布者 2026-11-13 决定随包分发（见 THIRD_PARTY.md）
 自定义置入滤镜流程/*
 !自定义置入滤镜流程/cube2dxo.py
 !自定义置入滤镜流程/test_cube2dxo.py
 !自定义置入滤镜流程/转换滤镜.command
 !自定义置入滤镜流程/README.md
+!自定义置入滤镜流程/stock/
+自定义置入滤镜流程/stock/*
+!自定义置入滤镜流程/stock/Imx183_Cc_Still1.bin
+
+# ---- 第 3 层 E：USB-C 版触屏补丁（林达 v26 原包，38 件） ----------------------
+USB-C触屏补丁v26/*
+!USB-C触屏补丁v26/README.md
+!USB-C触屏补丁v26/SHA256SUMS.txt
+!USB-C触屏补丁v26/autoexec.ash
+!USB-C触屏补丁v26/touch_prefs.bin
+!USB-C触屏补丁v26/p*.bin
 
 # ---- 第 4 层：全局垃圾与隐私文件（任何层级都拒绝） --------------------------
 **/.DS_Store

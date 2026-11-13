@@ -14,23 +14,24 @@
 | 事项 | 原因 |
 |---|---|
 | 外部代码 PR | 补丁程序为 All Rights Reserved，授权状态变更之前不合并外部代码贡献；请先开 Issue 讨论。 |
-| 索取 / 上传原厂固件二进制 | 原厂固件、sections、ROMFS、官方安装包一律不得上传、索取或粘贴。 |
-| 上传 v26 整包 / 源码包 / 安装器 | 仓库只附带 5 个运行时必需文件；一键安装器 `.exe`、源码 zip、`p01..p35.bin` 一律不收。 |
+| 索取 / 上传原厂固件二进制 | 完整固件镜像、sections、其余 ROMFS 提取物、官方安装包一律不得上传、索取或粘贴（`stock/Imx183_Cc_Still1.bin` 已获发布者授权入仓，除外）。 |
+| 上传 v26 源码包 / 安装器 | 仓库附带 `deps/` 5 件与 `USB-C触屏补丁v26/` 安装包；一键安装器 `.exe`、源码 zip 一律不收。 |
 | 替换 `deps/` 里的依赖版本 | 5 个文件须与来源包逐字节一致；换版本请先开 Issue 并更新署名与校验值。 |
 | 上传实拍原片与卡上日志 | 涉隐私与体积；如需说明问题，请裁剪成最小片段并去除 EXIF / 卷 UUID / 设备号。 |
 | 提交客户端代码 | 客户端仍在开发，尚未到发布阶段。 |
 
 ## 提交前自检
 
-`.gitignore` 是**白名单**：默认拒绝一切，只放行 `patch/` 13 件、`deps/` 5 件、
+`.gitignore` 是**白名单**：默认拒绝一切，只放行 `patch/`、`deps/`、
+`自定义置入滤镜流程/`（含 `stock/` 参照表）、`USB-C触屏补丁v26/`、
 启动动画与仓库标准文件。
 
-- [ ] 不含 DxO 原厂固件、官方安装包、v26 整包 / 源码包 / `.exe` / `p*.bin`
+- [ ] 不含完整固件镜像、官方安装包、v26 源码包 / `.exe`（参照表与 v26 安装包按 THIRD_PARTY.md 已授权入仓的除外）
 - [ ] 不含 `.cube` 源文件；新增 CC 表须说明来源与许可状态
 - [ ] 不含 DNG / 实机 JPG 原片 / `console_debug` 日志 / 卡 UUID / 设备号
-- [ ] `deps/touch_prefs.bin` 只能是**来源包自带的默认参数**，绝不能是某台相机上的个人参数
+- [ ] `deps/touch_prefs.bin` 与 `USB-C触屏补丁v26/touch_prefs.bin` 只能是**来源包自带的默认参数**，绝不能是某台相机上的个人参数
 - [ ] 不含本机绝对路径（`/Users/...`）、密钥、token、邮箱
-- [ ] `patch/SHA256SUMS.txt` 与 `deps/SHA256SUMS.txt` 已随二进制一起更新，两处 `shasum -a 256 -c` 全 OK
+- [ ] `patch/SHA256SUMS.txt`、`deps/SHA256SUMS.txt`、`USB-C触屏补丁v26/SHA256SUMS.txt` 已随二进制一起更新，各处 `shasum -a 256 -c` 全 OK
 - [ ] README 的版本号、magic、验证状态与本次改动一致
 - [ ] 新增第三方文件已在 `DEPENDENCIES.md` / `THIRD_PARTY.md` 署名并说明许可状态
 

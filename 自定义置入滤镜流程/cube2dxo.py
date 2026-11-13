@@ -33,7 +33,12 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-STOCK = os.path.join(ROOT, "固件镜像", "romfs", "section_2", "Imx183_Cc_Still1.bin")
+# 参照表查找顺序：发行版随仓库的 stock/ 优先，本地工作区老路径兜底
+_STOCK_CANDIDATES = (
+    os.path.join(HERE, "stock", "Imx183_Cc_Still1.bin"),
+    os.path.join(ROOT, "固件镜像", "romfs", "section_2", "Imx183_Cc_Still1.bin"),
+)
+STOCK = next((p for p in _STOCK_CANDIDATES if os.path.exists(p)), _STOCK_CANDIDATES[0])
 
 N = 16                      # 相机立方体边长
 BODY_OFF = 0x80
