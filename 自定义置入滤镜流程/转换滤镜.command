@@ -14,10 +14,10 @@ fi
 for f in "$@"; do
   if [ ! -f "$f" ]; then echo "跳过（找不到）：$f"; continue; fi
   echo "--- $(basename "$f") ---"
-  "$PY" "$DIR/cube2dxo.py" "$f" --tone pass --direct
+  "$PY" "$DIR/cube2dxo.py" "$f" --tone pass
   echo
 done
-echo "输出目录：<仓库根>/成品/lut/（文件名带 _direct 后缀）"
+echo "输出目录：<仓库根>/成品/lut/（复合模式 --tone pass，与成品十档同配方）"
 echo "置入方法见同目录 README.md"
 echo
 echo "按回车关闭窗口"

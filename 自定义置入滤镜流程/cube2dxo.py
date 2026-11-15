@@ -20,10 +20,9 @@ neutral 是主动抵消 LUT 灰轴影调的风格选项，不是 Log/色域转�
 
 直通模式（--direct）：
       新表(输入) = 目标LUT( 输入 )
-参照表用内存构造的恒等立方体，不读任何文件——GitHub 发行版不含固件提取物
-（许可红线），直通让发布目录自包含。与复合配方的差异：少了原厂基础影调层，
-输出是纯滤镜直出；尾部 1024 B 曲线填 0（原厂表上实测改动尾部无效果，
-但直通产物本身未实机验证）。
+参照表用内存构造的恒等立方体，不读任何文件。与复合配方的差异：少了原厂
+基础影调层，输出是纯滤镜直出；尾部 1024 B 曲线填 0（原厂表上实测改动尾部
+无效果，但直通产物本身未实机验证）。
 """
 import os
 import re
@@ -275,8 +274,8 @@ if __name__ == "__main__":
                     help="tone=blend 时 neutral 的权重 0..1（默认 0.65）")
     ap.add_argument("--bw", action="store_true", help="转成黑白（去色后再套 LUT）")
     ap.add_argument("--direct", action="store_true",
-                    help="直通模式：不读原厂参照表（GitHub 发行版不含固件提取物），"
-                         "输出 = 纯滤镜直出，不含原厂基础影调层")
+                    help="直通模式：不读原厂参照表，输出 = 纯滤镜直出，"
+                         "不含原厂基础影调层（观感与成品十档不同，未实机验证）")
     ap.add_argument("--name", default=None, help="输出文件名（不含扩展名）")
     ap.add_argument("--outdir", default=None, help="输出目录，默认 成品/lut")
     args = ap.parse_args()
@@ -288,12 +287,13 @@ if __name__ == "__main__":
             header, stock_cube, tail = decode_table(STOCK)
         except FileNotFoundError:
             raise SystemExit(
-                "找不到原厂参照表（GitHub 发行版不含固件提取物，许可红线不允许附带）。\n"
+                "找不到原厂参照表（本仓库已随包提供 stock/Imx183_Cc_Still1.bin，"
+                "缺失说明安装不完整）。\n"
                 "两种选择：\n"
-                "  1) 加 --direct 改用直通模式：纯滤镜直出，无需任何固件文件，\n"
-                "     但与成品十档的复合配方不同（少了原厂基础影调层）；\n"
-                "  2) 按 README「原厂参照表」一节自行从官方固件提取后放到：\n"
-                f"     {STOCK}")
+                "  1) 重新下载 / 克隆完整仓库，恢复 stock/ 参照表；\n"
+                "  2) 加 --direct 改用直通模式：纯滤镜直出，无需参照表，\n"
+                "     但与成品十档的复合配方不同（少了原厂基础影调层，未实机验证）。\n"
+                f"也可按 README「原厂参照表」一节自行提取后放到：{STOCK}")
 
     if args.direct:
         # 直通自检：恒等参照的复合往返必须逐字节还原参照自身
