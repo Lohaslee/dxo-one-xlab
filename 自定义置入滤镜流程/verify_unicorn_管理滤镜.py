@@ -89,7 +89,8 @@ def check(menu_text: bytes, names, label: str) -> bool:
 def main():
     ok = True
     for tag, rel in (('69', 'patch/ph_menu.bin'),
-                     ('71', '实验/71_修复INSTA分发/ph_menu.bin')):
+                     ('71', '实验/71_修复INSTA分发/ph_menu.bin'),
+                     ('72', '实验/72_滤镜记忆/ph_menu.bin')):
         path = ROOT / rel
         if not path.exists():
             print(f'  [跳过] Build {tag}: 缺 {rel}')

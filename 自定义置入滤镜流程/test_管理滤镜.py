@@ -23,6 +23,7 @@ PATCH = ROOT / "patch"
 PKG = PATCH / "DXO_FILTERS"
 T69 = PATCH / "ph_menu.bin"
 T71 = ROOT / "实验/71_修复INSTA分发/ph_menu.bin"
+T72 = ROOT / "实验/72_滤镜记忆/ph_menu.bin"
 PY = sys.executable
 PASS, SKIP = [], []
 
@@ -93,14 +94,29 @@ def main():
     else:
         SKIP.append("T2e/T2f（缺 实验/71）")
         print("  SKIP T2e/T2f：实验/71 现场不在")
+    if T72.is_file():
+        m72 = T72.read_bytes()
+        menu72 = M.get_seg(M.parse_records(m72), M.MENU_BASE)
+        names72 = M.decode_names(M.split_menu(menu72)["N"])
+        e72 = M.read_template_entries(m72)
+        check("T2g Build72 menu no-op 逐字节一致", M.rebuild_menu_text(menu72, names72) == menu72)
+        check("T2h Build72 ph_menu no-op 逐字节一致", M.rebuild_ph_menu(m72, e72) == m72)
+        check("T2i 布局识别 69/72", M.core_layout(M.get_seg(segs69, M.CORE_BASE)) == "69"
+              and M.core_layout(M.get_seg(M.parse_records(m72), M.CORE_BASE)) == "72")
+    else:
+        SKIP.append("T2g/T2h/T2i（缺 实验/72）")
+        print("  SKIP T2g/T2h/T2i：实验/72 现场不在")
 
     print("== T3 规范布局 + 静态分发校验 ==")
     canon = M.rebuild_menu_text(menu69, names69, canonical=True)
     cp = M.split_menu(canon)
-    pm = bytearray(parts["P"]); pm[M.P_DISP_BHI:M.P_DISP_BHI + 4] = b"\0" * 4
-    cm = bytearray(cp["P"]); cm[M.P_DISP_BHI:M.P_DISP_BHI + 4] = b"\0" * 4
+    def mask_p(P):
+        m = bytearray(P)
+        for off in (M.P_DISP_BHI, M.P_F1_SETUP_A, M.P_F1_SETUP_B):
+            m[off:off + 4] = b"\0" * 4
+        return bytes(m)
     check("T3a 规范布局 F1/F2 逐字节一致", cp["F1"] == parts["F1"] and cp["F2"] == parts["F2"])
-    check("T3b 规范布局 P(除 bhi) 一致", bytes(pm) == bytes(cm))
+    check("T3b 规范布局 P(除三条进页分支) 一致", mask_p(parts["P"]) == mask_p(cp["P"]))
     check("T3c 模板静态分发", _ok(M.verify_dispatch, menu69, names69))
     check("T3d 规范布局静态分发", _ok(M.verify_dispatch, canon, names69))
     deleted = names69[:-1]
@@ -109,13 +125,18 @@ def main():
     added = names69 + ["TEST"]
     ma = M.rebuild_menu_text(menu69, added, canonical=True)
     check("T3f 增一档分发 (n=%d)" % len(added), _ok(M.verify_dispatch, ma, added))
+    # T3g 崩溃根因回归：进页分支 P+68c/6a0 若未随 V 移位重定位（落点写死），分发校验必须拒绝。
+    broken = bytearray(canon)
+    for off in (M.P_F1_SETUP_A, M.P_F1_SETUP_B):
+        struct.pack_into("<I", broken, off, struct.unpack_from("<I", parts["P"], off)[0])
+    check("T3g 进页分支失配被拒（进页即崩根因）", not _ok(M.verify_dispatch, bytes(broken), names69))
 
     print("== T4 ph_menu 增删 menu+core+STR 一致 ==")
     def ph_consistent(ph, ents):
         ss = M.parse_records(ph)
         nn = len(ents)
         M.verify_dispatch(M.get_seg(ss, M.MENU_BASE), [e[0] for e in ents])
-        pl = struct.unpack_from("<I", M.get_seg(ss, M.CORE_BASE), M.C_PRELOAD_MOV)[0] & 0xFFF
+        pl = M.read_preload(M.get_seg(ss, M.CORE_BASE))
         M.verify_core(M.get_seg(ss, M.CORE_BASE), nn, pl)
         return M.get_seg(ss, M.STR_BASE) == M.build_STR(ents)
     check("T4a 删末档 ph_menu 一致",
@@ -127,6 +148,21 @@ def main():
     check("T4c slot1 指纹重复被拒",
           _raises(ValueError, M.rebuild_ph_menu, m69,
                   entries69[:1] + entries69[:1]))
+    if T72.is_file():
+        m72 = T72.read_bytes()
+        e72 = M.read_template_entries(m72)
+        check("T4d Build72 删末档 ph_menu 一致",
+              ph_consistent(M.rebuild_ph_menu(m72, e72[:-1], canonical=True), e72[:-1]))
+        fp72 = 0xABCD0000 + len(e72)
+        ent72 = e72 + [("TEST", "c:\\DXO_FILTERS\\lut_test.bin", fp72, fp72)]
+        check("T4e Build72 增一档 ph_menu 一致",
+              ph_consistent(M.rebuild_ph_menu(m72, ent72, canonical=True), ent72))
+        check("T4f Build72 改预装档生效",
+              M.read_preload(M.get_seg(M.parse_records(
+                  M.rebuild_ph_menu(m72, e72, preload=5)), M.CORE_BASE)) == 5)
+    else:
+        SKIP.append("T4d/T4e/T4f（缺 实验/72）")
+        print("  SKIP T4d/T4e/T4f：实验/72 现场不在")
 
     print("== T5 包指纹提取 + 输入校验 ==")
     ok = True

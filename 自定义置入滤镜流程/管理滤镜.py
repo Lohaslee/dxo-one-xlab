@@ -42,7 +42,10 @@ P_CYC_DN_CMP = 0x57C     # cmp r0,#(n-1)   .Lfk_down 上限
 P_CYC_DN_MOV = 0x58C     # mov r0,#(n-1)   .Lfk_down 回绕
 P_DISP_CMP = 0x6A8       # cmp r6,#(n-1)   分发上限
 P_DISP_BHI = 0x6AC       # bhi .Ldc_unknown
+P_F1_SETUP_A = 0x68C     # b .Ldc_setup    进页状态设置入口A（跳 F1+0x68）
+P_F1_SETUP_B = 0x6A0     # b .Ldc_setup    进页状态设置入口B（跳 F1+0x68）
 F1_UNKNOWN_OFF = 0x20    # .Ldc_unknown 在 F1 内偏移
+F1_SETUP_OFF = 0x68      # .Ldc_setup 在 F1 内偏移（movw/movt r4,#0x08EF6000）
 F1_ADR_INDEX = 0x114     # adr r9,menu_index 在 F1 内偏移
 F1_ADR_FONT = 0x12C      # adr r9,menu_font  在 F1 内偏移
 F2_FONT_OFF = 96         # menu_font 在 F2 内偏移（menu_index 占 96B）
@@ -243,6 +246,14 @@ def patch_P(P: bytes, n: int, f1_start: int) -> bytes:
     put(P_DISP_CMP, enc_cmp(6, n - 1), 0xFFFFF000, 0xE3560000)
     put(P_DISP_BHI, enc_branch(8, P_DISP_BHI, f1_start + F1_UNKNOWN_OFF),
         0xFF000000, 0x8A000000)
+    # 进页两条条件分支（bne）跳 F1+0x68 状态设置入口；V 长度变化使 F1 移位时必须同步重定位，
+    # 否则落点写死跳进 F1 指令中间→进滤镜页即崩（69/71 因 V 未变而侥幸正确）。保留原条件码。
+    for off in (P_F1_SETUP_A, P_F1_SETUP_B):
+        old = struct.unpack_from('<I', b, off)[0]
+        if old & 0x0F000000 != 0x0A000000:
+            raise ValueError(f'P 进页分支 {off:#x} 非分支指令：{old:#010x}')
+        struct.pack_into('<I', b, off,
+                         enc_branch(old >> 28, off, f1_start + F1_SETUP_OFF))
     return bytes(b)
 
 
@@ -290,8 +301,34 @@ def rebuild_menu_text(template_menu: bytes, names, canonical: bool = False) -> b
 C_SELECT_CMP = 0x02C     # cmp r4,#(n-1)   filter_select 上限
 C_EXP_MOVW = 0x180       # movw r2,#lower16(EXP_BASE)
 C_EXP_MOVT = 0x184       # movt r2,#upper16(EXP_BASE)
-C_BOOT_CMP = 0x304       # cmp r0,#(n-1)   filter_bootstrap 上限
-C_PRELOAD_MOV = 0x314    # mov r0,#preload 开机预装档
+# bootstrap 补丁点分布局：69/71 无记忆；72 带滤镜记忆（read_last+防抖清零使 bootstrap 后移）
+C_BOOT_CMP_69 = 0x304    # cmp r0,#(n-1)   filter_bootstrap 上限
+C_PRELOAD_MOV_69 = 0x314  # mov r0,#preload 开机预装档
+C_BOOT_CMP_72 = 0x30C    # cmp r0,#(n-1)   current 已知判定
+C_BOOT_LAST_CMP_72 = 0x344  # cmp r0,#(n-1) 记忆 idx 范围校验
+C_PRELOAD_MOV_72 = 0x36C  # mov r0,#preload 回退预装档
+
+
+def core_layout(core: bytes) -> str:
+    """识别 core 布局：72 的 0x304 是 MOV32 r0,CORE_STATE 的 movt 上半字，
+    69/71 的 0x304 是 cmp r0,#(n-1)。其余 opcode 不符则拒绝。"""
+    w = struct.unpack_from('<I', core, C_BOOT_CMP_69)[0]
+    if w == 0xE3400000 | (0 << 12) | 0x08EF:   # movt r0,#0x08EF
+        return '72'
+    if w & 0xFFFFF000 == 0xE3500000:           # cmp r0,#imm
+        return '69'
+    raise ValueError(f'core 布局不认识：0x304 处 opcode {w:#010x}')
+
+
+def boot_points(layout: str):
+    if layout == '72':
+        return C_BOOT_CMP_72, C_BOOT_LAST_CMP_72, C_PRELOAD_MOV_72
+    return C_BOOT_CMP_69, None, C_PRELOAD_MOV_69
+
+
+def read_preload(core: bytes) -> int:
+    _, _, preload_mov = boot_points(core_layout(core))
+    return struct.unpack_from('<I', core, preload_mov)[0] & 0xFFF
 
 
 def enc_movw(rd: int, imm16: int) -> int:
@@ -307,6 +344,8 @@ def patch_core(core: bytes, n: int, preload: int) -> bytes:
         raise ValueError(f'档位数 {n} 超出 1..{MAX_SLOTS}')
     if not 0 <= preload < n:
         raise ValueError(f'预装档 {preload} 越界（须 0..{n-1}）')
+    layout = core_layout(core)
+    boot_cmp, last_cmp, preload_mov = boot_points(layout)
     b = bytearray(core)
     exp_base = STR_BASE + n * PATH_STRIDE
     if exp_base + n * 8 > DURATIONS_BASE:
@@ -321,20 +360,26 @@ def patch_core(core: bytes, n: int, preload: int) -> bytes:
     put(C_SELECT_CMP, enc_cmp(4, n - 1), 0xFFFFF000, 0xE3540000)
     put(C_EXP_MOVW, enc_movw(2, exp_base & 0xFFFF), 0xFFF0F000, 0xE3002000)
     put(C_EXP_MOVT, enc_movt(2, (exp_base >> 16) & 0xFFFF), 0xFFF0F000, 0xE3402000)
-    put(C_BOOT_CMP, enc_cmp(0, n - 1), 0xFFFFF000, 0xE3500000)
-    put(C_PRELOAD_MOV, enc_mov(0, preload), 0xFFFFF000, 0xE3A00000)
+    put(boot_cmp, enc_cmp(0, n - 1), 0xFFFFF000, 0xE3500000)
+    if last_cmp is not None:
+        put(last_cmp, enc_cmp(0, n - 1), 0xFFFFF000, 0xE3500000)
+    put(preload_mov, enc_mov(0, preload), 0xFFFFF000, 0xE3A00000)
     return bytes(b)
 
 
 def verify_core(core: bytes, n: int, preload: int) -> None:
-    """核对 core.text 的 5 个立即数补丁点与 n/preload/EXP_BASE 一致。"""
+    """核对 core.text 的立即数补丁点与 n/preload/EXP_BASE 一致（按布局）。"""
+    layout = core_layout(core)
+    boot_cmp, last_cmp, preload_mov = boot_points(layout)
     cw = struct.unpack_from(f'<{len(core)//4}I', core, 0)
     exp_base = STR_BASE + n * PATH_STRIDE
     assert cw[C_SELECT_CMP // 4] == enc_cmp(4, n - 1), 'filter_select 上限不符'
     assert cw[C_EXP_MOVW // 4] == enc_movw(2, exp_base & 0xFFFF), 'EXP_BASE movw 不符'
     assert cw[C_EXP_MOVT // 4] == enc_movt(2, (exp_base >> 16) & 0xFFFF), 'EXP_BASE movt 不符'
-    assert cw[C_BOOT_CMP // 4] == enc_cmp(0, n - 1), 'bootstrap 上限不符'
-    assert cw[C_PRELOAD_MOV // 4] == enc_mov(0, preload), '预装档不符'
+    assert cw[boot_cmp // 4] == enc_cmp(0, n - 1), 'bootstrap 上限不符'
+    if last_cmp is not None:
+        assert cw[last_cmp // 4] == enc_cmp(0, n - 1), '记忆 idx 范围上限不符'
+    assert cw[preload_mov // 4] == enc_mov(0, preload), '预装档不符'
 
 
 def build_STR(entries) -> bytes:
@@ -383,7 +428,7 @@ def rebuild_ph_menu(template: bytes, entries, preload: int | None = None,
         raise ValueError('slot1 指纹有重复，无法区分滤镜')
     tmpl_core = get_seg(segs, CORE_BASE)
     if preload is None:
-        old_preload = struct.unpack_from('<I', tmpl_core, C_PRELOAD_MOV)[0] & 0xFFF
+        old_preload = read_preload(tmpl_core)
         preload = old_preload if old_preload < n else 0
     menu_new = rebuild_menu_text(get_seg(segs, MENU_BASE), names, canonical=canonical)
     core_new = patch_core(tmpl_core, n, preload)
@@ -468,6 +513,10 @@ def verify_dispatch(menu: bytes, names) -> dict:
     assert pw[P_CYC_DN_MOV // 4] == enc_mov(0, n - 1), '循环回绕(dn)不符'
     assert pw[P_DISP_CMP // 4] == enc_cmp(6, n - 1), '分发上限不符'
     assert dec_branch(pw[P_DISP_BHI // 4], P_DISP_BHI) == f1_start + F1_UNKNOWN_OFF, 'bhi 目标不符'
+    # 进页两条无条件分支必须落在 F1+0x68 状态设置入口；V 移位后若未重定位会跳进指令中间→实机进页即崩。
+    for off, tag in ((P_F1_SETUP_A, 'A'), (P_F1_SETUP_B, 'B')):
+        assert pw[off // 4] & 0x0F000000 == 0x0A000000, f'进页分支{tag} 非分支指令'
+        assert dec_branch(pw[off // 4], off) == f1_start + F1_SETUP_OFF, f'进页分支{tag}目标不符'
     vw = struct.unpack_from(f'<{len(V)//4}I', V, 0)
     dispatch, i = {}, 0
     while i < len(vw) and (vw[i] & 0xFFFFF000) == 0xE3560000:
@@ -536,13 +585,16 @@ def _selftest():
         except AssertionError as e:
             ok = False
             print(f'    模板静态分发校验 ✗ {e}')
-        # 3) 规范布局重生成：F1/F2 逐字节一致，P 仅 bhi 随 V 长度变，N 名字等价（填充字节为死字节）
+        # 3) 规范布局重生成：F1/F2 逐字节一致，P 仅三条进页分支(bhi+68c+6a0)随 V 长度变，N 名字等价
         canon = rebuild_menu_text(menu, names, canonical=True)
         cp = split_menu(canon)
-        p_masked = bytearray(parts['P']); p_masked[P_DISP_BHI:P_DISP_BHI + 4] = b'\0' * 4
-        cp_masked = bytearray(cp['P']); cp_masked[P_DISP_BHI:P_DISP_BHI + 4] = b'\0' * 4
+        def mask_p_branches(P):
+            m = bytearray(P)
+            for off in (P_DISP_BHI, P_F1_SETUP_A, P_F1_SETUP_B):
+                m[off:off + 4] = b'\0' * 4
+            return bytes(m)
         fixed_same = (cp['F1'] == parts['F1'] and cp['F2'] == parts['F2']
-                      and bytes(p_masked) == bytes(cp_masked)
+                      and mask_p_branches(parts['P']) == mask_p_branches(cp['P'])
                       and decode_names(cp['N']) == names)
         ok &= fixed_same
         try:
@@ -552,7 +604,7 @@ def _selftest():
             vok = False
             ok = False
             print(f'    规范布局分发校验 ✗ {e}')
-        print(f'    规范布局：F1/F2 逐字节一致+P(除bhi)+N名字等价 {"✓" if fixed_same else "✗"}，'
+        print(f'    规范布局：F1/F2 逐字节一致+P(除三条进页分支)+N名字等价 {"✓" if fixed_same else "✗"}，'
               f'分发校验 {"✓" if vok else "✗"}，V {len(parts["V"])}B->{len(cp["V"])}B')
         # 4) 增删场景
         if n >= 2:
@@ -591,7 +643,7 @@ def _selftest():
                 ss = parse_records(ph)
                 nn = len(ents)
                 verify_dispatch(get_seg(ss, MENU_BASE), [e[0] for e in ents])
-                pl = struct.unpack_from('<I', get_seg(ss, CORE_BASE), C_PRELOAD_MOV)[0] & 0xFFF
+                pl = read_preload(get_seg(ss, CORE_BASE))
                 verify_core(get_seg(ss, CORE_BASE), nn, pl)
                 assert get_seg(ss, STR_BASE) == build_STR(ents), 'STR 不符'
                 print(f'    {label} -> n={nn} menu+core+STR 校验 ✓ ({len(ph)}B)')
@@ -650,7 +702,7 @@ def _emit(args, template, entries, action):
     ph = rebuild_ph_menu(template, entries, preload=args.preload, canonical=False, magic=magic)
     segs = parse_records(ph)
     verify_dispatch(get_seg(segs, MENU_BASE), names)
-    pl = struct.unpack_from('<I', get_seg(segs, CORE_BASE), C_PRELOAD_MOV)[0] & 0xFFF
+    pl = read_preload(get_seg(segs, CORE_BASE))
     verify_core(get_seg(segs, CORE_BASE), n, pl)
     if get_seg(segs, STR_BASE) != build_STR(entries):
         raise SystemExit('错误：STR 复核不符')
@@ -666,7 +718,7 @@ def _emit(args, template, entries, action):
 def cmd_list(args):
     data, entries = _load_template(args.ph_menu)
     core = get_seg(parse_records(data), CORE_BASE)
-    preload = struct.unpack_from('<I', core, C_PRELOAD_MOV)[0] & 0xFFF
+    preload = read_preload(core)
     print(f'模板 {args.ph_menu}：{len(entries)} 档（上限 {MAX_SLOTS}），开机预装 idx={preload}')
     print(f'{"idx":>3}  {"名字":8s} {"卡路径":30s} 指纹(槽2/槽5)')
     for i, (nm, path, fp1, fp5) in enumerate(entries):
