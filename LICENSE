@@ -7,8 +7,8 @@
 
 ## 1. 补丁程序与二进制 —— 保留所有权利
 
-范围：`patch/` 下的 `*.ash`、`*.bin`、`SHA256SUMS.txt`，以及其中的菜单逻辑、
-色彩表、装载流程与任何可执行逻辑。
+范围：`Lightning-L口/` 下维护者原创的 `*.ash`、`*.bin`、`SHA256SUMS.txt`，以及其中的菜单逻辑、
+色彩表、装载流程与任何可执行逻辑（不含第三方依赖 `dxot/` 与 `touch_prefs.bin`，见第 4 节）。
 
 > Copyright (c) 2026 Lohaslee. All Rights Reserved.
 
@@ -25,7 +25,7 @@
 - 修改、反编译后公开发布衍生版本；
 - 将本补丁用于个人设备之外的任何设备。
 
-> 注：本仓库中的 9 个色彩查找表由第三方 `.cube` 素材派生，其权利状况见
+> 注：本仓库中的 10 个色彩查找表由第三方 `.cube` 素材派生，其权利状况见
 > [THIRD_PARTY.md](THIRD_PARTY.md)。本条款**不授予**这些第三方素材的任何权利；
 > 如权利人提出异议，相关内容将从仓库移除。
 
@@ -53,11 +53,11 @@ Apache-2.0 等开放许可证的权利；在 LICENSE 明示变更之前，以本
 
 ## 4. 第三方内容 —— 不适用本条款
 
-**（a）`deps/` 下的 5 个运行时依赖**（`dxot/m01.ash`、`dxot/m02.ash`、
+**（a）`Lightning-L口/dxot/` 与 `touch_prefs.bin`（5 个运行时依赖）**（`dxot/m01.ash`、`dxot/m02.ash`、
 `dxot/a.bin`、`dxot/b.bin`、`touch_prefs.bin`）来自**林达 (@PENTAX_FA43mm)**
 的 v26 触屏补丁与 **Eli** 的 iOS / Lightning 固件移植版，版权归原作者。
 
-**（b）`USB-C触屏补丁v26/` 整目录**（37 件）是林达 v26 触屏补丁的
+**（b）`USB-C-C口/` 整目录**（37 件）是林达 v26 触屏补丁的
 USB-C 原生版完整安装包，版权归原作者。
 
 以上两者本仓库**既不主张权利、也不授予 sublicense**，未做任何修改，

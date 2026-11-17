@@ -151,23 +151,23 @@ python3 重登记指纹.py ph_menu.bin DXO_FILTERS -o ph_menu.new.bin
 
 `重登记指纹.py` 只能在**档位数不变**的前提下换内容；要**新增 / 删除**档位、
 让菜单同步扩张或收缩，用 `管理滤镜.py`。它是**模板补丁构建器**：以发布层
-`patch/ph_menu.bin`（Build 69）为模板，只重写随清单变化的 `menu.text` 分发链/
+`Lightning-L口/ph_menu.bin`（当前 Build 72）为模板，只重写随清单变化的 `menu.text` 分发链/
 名字串、`core.text` 立即数、`STR` 路径与指纹区，**其余固件补丁段逐字节保留**。
 不需要您侧装 Xcode/clang，`ph_menu.bin` 仍由工具生成（不手改二进制）。
 
 ```bash
 # 列出模板登记清单（idx / 名字 / 卡路径 / 指纹 / 预装档）
-python3 管理滤镜.py list ../patch/ph_menu.bin
+python3 管理滤镜.py list ../Lightning-L口/ph_menu.bin
 
 # 新增一档（菜单同步扩张）：名字限字模字符集 ≤6 字符，包是 87,720 B 五槽包
-python3 管理滤镜.py add ../patch/ph_menu.bin --name SATOBI --pkg DXO_FILTERS/lut_sato.bin -o ph_menu.new.bin
+python3 管理滤镜.py add ../Lightning-L口/ph_menu.bin --name SATOBI --pkg DXO_FILTERS/lut_sato.bin -o ph_menu.new.bin
 
 # 删除一或多档（菜单同步收缩、重新索引）：按 idx 或名字，可重复
-python3 管理滤镜.py delete ../patch/ph_menu.bin --idx 9 --idx 5 -o ph_menu.new.bin
-python3 管理滤镜.py delete ../patch/ph_menu.bin --name R-HIBW --name KYUSHU -o ph_menu.new.bin
+python3 管理滤镜.py delete ../Lightning-L口/ph_menu.bin --idx 9 --idx 5 -o ph_menu.new.bin
+python3 管理滤镜.py delete ../Lightning-L口/ph_menu.bin --name R-HIBW --name KYUSHU -o ph_menu.new.bin
 
 # 按 JSON 清单全量重建（{filters:[{name,pkg}], preload?}）
-python3 管理滤镜.py rebuild ../patch/ph_menu.bin --manifest manifest.json --pkg-dir DXO_FILTERS -o ph_menu.new.bin
+python3 管理滤镜.py rebuild ../Lightning-L口/ph_menu.bin --manifest manifest.json --pkg-dir DXO_FILTERS -o ph_menu.new.bin
 
 # 无参数 = 逐字节回归自检
 python3 管理滤镜.py
@@ -262,9 +262,9 @@ P 区三条进页分支（bhi+0x68C+0x6A0）落点自洽指向 F1+0x20/+0x68，�
 更新。用 自定义置入滤镜流程/管理滤镜.py（模板补丁构建器），严格按步骤，不跳步。
 
 【前置检查】
-1. 进入 自定义置入滤镜流程/，运行 python3 test_管理滤镜.py，42 项应全过
+1. 进入 自定义置入滤镜流程/，运行 python3 test_管理滤镜.py，50 项应全过
    （用到 Build 71 的项在实验目录缺失时跳过属正常）；有 FAIL 就停下问我。
-2. 确认模板 ph_menu.bin 来源（仓库 patch/ph_menu.bin，或卡上只读拷贝）。
+2. 确认模板 ph_menu.bin 来源（仓库 Lightning-L口/ph_menu.bin，或卡上只读拷贝）。
 
 【离线生成】
 3. 先 python3 管理滤镜.py list <模板> 向我展示当前清单，确认增删目标。

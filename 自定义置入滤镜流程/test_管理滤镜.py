@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """管理滤镜.py 的发布版独立测试（纯标准库，不依赖 unicorn）。
 
-T1..T5 在"只有仓库文件"的环境可跑（用 patch/ 自带 Build 69 与十包）；
+T1..T5 在"只有仓库文件"的环境可跑（用 testdata/ 的 Build 69 固定夹具与发布层十包）；
 涉及 Build 71 的项在 实验/71 现场缺失时跳过（发布环境正常）。
 unicorn 真执行门是另一道可选离线门，见 verify_unicorn_管理滤镜.py。
 """
@@ -19,11 +19,11 @@ sys.path.insert(0, str(HERE))
 import 管理滤镜 as M
 
 TOOL = HERE / "管理滤镜.py"
-PATCH = ROOT / "patch"
-PKG = PATCH / "DXO_FILTERS"
-T69 = PATCH / "ph_menu.bin"
+RELEASE = ROOT / "Lightning-L口"
+PKG = RELEASE / "DXO_FILTERS"
+T69 = HERE / "testdata/ph_menu_69.bin"
 T71 = ROOT / "实验/71_修复INSTA分发/ph_menu.bin"
-T72 = ROOT / "实验/72_滤镜记忆/ph_menu.bin"
+T72 = RELEASE / "ph_menu.bin"
 PY = sys.executable
 PASS, SKIP = [], []
 

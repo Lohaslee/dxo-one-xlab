@@ -1,6 +1,6 @@
 # 运行时依赖 · 第三方触屏补丁（请先读）
 
-> **`deps/` 下这 5 个文件不是本仓库原创。**
+> **`Lightning-L口/dxot/`（4 件）与 `Lightning-L口/touch_prefs.bin` 这 5 个文件不是本仓库原创。**
 > 它们是「DxO ONE 触屏补丁 v26」的 iOS / Lightning 固件移植版组成部分，
 > 由社区作者公开发布。本仓库仅作运行时依赖**原样附带 + 完整署名**，不主张任何权利，
 > 也不授予这些文件的任何使用许可。
@@ -9,7 +9,7 @@
 
 ## 1. 为什么需要它们
 
-`patch/autoexec.ash` 启动时会依次调用：
+`Lightning-L口/autoexec.ash` 启动时会依次调用：
 
 ```
 c:\dxot\m01.ash       装载器 ARM 指令（第一段）
@@ -40,7 +40,7 @@ c:\dxot\b.bin          运行内存片段 B
 
 | 机型 | 完整构建号 | 该用哪套 |
 |---|---|---|
-| **iOS / Lightning 版**（含换装 USB-C 接口的 iOS 机身） | **`ecef5ef809`** | ✅ 用本仓库 `deps/` |
+| **iOS / Lightning 版**（含换装 USB-C 接口的 iOS 机身） | **`ecef5ef809`** | ✅ 用本仓库 `Lightning-L口/` 整包 |
 | 安卓 / USB-C 原生版 | `267b1a9e02` | ❌ 请用林达原版 v26，不要用本套 |
 
 其他固件版本内存地址不同，**不要安装**。装错一般是补丁无效或相机异常，
@@ -56,7 +56,7 @@ c:\dxot\b.bin          运行内存片段 B
 | `dxot/b.bin` | 7,832 B | 运行内存片段 B |
 | `touch_prefs.bin` | 16 B | **默认**参数（档位 / 曝光 / WB / 对焦区域 / MF 距离等） |
 
-`deps/SHA256SUMS.txt` 给出 5 件完整校验值，与移植包 README 公布的原值一致（前缀）：
+`Lightning-L口/SHA256SUMS.txt` 含这 5 件完整校验值（连同补丁共 19 件卡文件），与移植包 README 公布的原值一致（前缀）：
 
 ```
 m01.ash         c6e15f63…
@@ -68,14 +68,14 @@ touch_prefs.bin 145daaa8…
 
 ## 5. 部署规则（⚠️ 最容易踩的坑）
 
-1. 把 `deps/dxot/` **整个目录**复制到卡根目录 —— 不是把里面 4 个文件平铺到根目录。
+1. 把 `Lightning-L口/dxot/` **整个目录**复制到卡根目录 —— 不是把里面 4 个文件平铺到根目录。
 2. **`touch_prefs.bin`**：
    - 卡上**已有** → **保留卡上的，绝对不要用仓库里的覆盖**，否则你保存的设置会全部回默认；
-   - 只有全新卡 / 从没装过 v26 → 才复制 `deps/touch_prefs.bin`。
+   - 只有全新卡 / 从没装过 v26 → 才复制 `Lightning-L口/touch_prefs.bin`。
 3. 卡上已有 `dxot/` → 先确认版本，再整体替换。
 4. 原版 v26 的 `p01.bin`～`p35.bin` 在本套（Lightning）里用不上，无需复制；
-   USB-C 机型请改用仓库的 `USB-C触屏补丁v26/`。
-5. 逐文件回读 SHA-256 与 `deps/SHA256SUMS.txt` 核对，正常弹出卷后再拔卡。
+   USB-C 机型请改用仓库的 `USB-C-C口/`。
+5. 逐文件回读 SHA-256 与 `Lightning-L口/SHA256SUMS.txt` 核对，正常弹出卷后再拔卡。
 
 开机后约 3 秒补丁才生效，在此之前触屏仍是原厂行为。
 
@@ -86,7 +86,7 @@ touch_prefs.bin 145daaa8…
   见 THIRD_PARTY.md）之外的 DxO 原厂固件镜像、`sections/` 与其他 ROMFS 提取内容
 - 任何 `console_debug.txt`、实机日志或存储卡备份
 
-> USB-C 机型的用户：本仓库另附 **`USB-C触屏补丁v26/`**（林达 v26 原版完整
+> USB-C 机型的用户：本仓库另附 **`USB-C-C口/`**（林达 v26 原版完整
 > 安装包），与本节所述的 Lightning 版依赖无关，见该目录 README。
 
 ## 7. 故障恢复

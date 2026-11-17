@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """管理滤镜：在已验证菜单模板上做「增 / 删 / 改清单」的模板补丁构建器。
 
-不重新编译固件、不需要用户侧 Xcode：以发布层 patch/ph_menu.bin（Build 69）为模板，
+不重新编译固件、不需要用户侧 Xcode：以固定回归夹具 testdata/ph_menu_69.bin（Build 69 十档）为模板，
+用户自定义时传入发布层 Lightning-L口/ph_menu.bin（当前 Build 72），
 只重写随清单变化的 menu.text 分发链/名字串、core.text 立即数、STR 路径与指纹区，
 其余固件补丁段逐字节保留。ph_menu.bin 仍由本工具生成（不手改二进制）。
 
@@ -613,8 +614,9 @@ def verify_dispatch(menu: bytes, names) -> dict:
 def _selftest():
     root = Path(__file__).resolve().parent.parent
     ok = True
-    for tag, rel in (('69', 'patch/ph_menu.bin'),
-                     ('71', '实验/71_修复INSTA分发/ph_menu.bin')):
+    for tag, rel in (('69', '自定义置入滤镜流程/testdata/ph_menu_69.bin'),
+                     ('71', '实验/71_修复INSTA分发/ph_menu.bin'),
+                     ('72', 'Lightning-L口/ph_menu.bin')):
         path = root / rel
         if not path.exists():
             print(f'  [跳过] Build {tag}: 缺 {rel}')
@@ -864,7 +866,7 @@ def _build_argparser():
     sub = ap.add_subparsers(dest='cmd', required=True)
 
     def common(p):
-        p.add_argument('ph_menu', help='模板 ph_menu.bin（仓库 patch/ 或卡上只读拷贝）')
+        p.add_argument('ph_menu', help='模板 ph_menu.bin（仓库 Lightning-L口/ 或卡上只读拷贝）')
         p.add_argument('-o', '--output', help='输出路径（默认 工作目录/<输入名>.new.bin）')
         p.add_argument('--preload', type=int, help='开机预装档 idx（缺省沿用模板，越界取 0）')
         p.add_argument('--magic', help='LOG_HDR 信标 hex（如 0x50473543）；缺省沿用模板')

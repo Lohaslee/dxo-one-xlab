@@ -65,7 +65,7 @@ def extract_fingerprints(pkg_path):
 
 def main():
     ap = argparse.ArgumentParser(description="重登记 ph_menu.bin 指纹（档位数不变）")
-    ap.add_argument("ph_menu", help="现有 ph_menu.bin（卡上或仓库 patch/ 里的）")
+    ap.add_argument("ph_menu", help="现有 ph_menu.bin（卡上或仓库 Lightning-L口/ 里的）")
     ap.add_argument("pkg_dir", help="DXO_FILTERS 目录（含替换后的 lut_*.bin）")
     ap.add_argument("-o", "--output", help="输出 ph_menu 路径（默认 <输入>.reg.bin）")
     args = ap.parse_args()

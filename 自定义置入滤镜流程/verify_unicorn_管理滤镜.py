@@ -96,9 +96,9 @@ def check(menu_text: bytes, names, label: str) -> bool:
 
 def main():
     ok = True
-    for tag, rel in (('69', 'patch/ph_menu.bin'),
+    for tag, rel in (('69', '自定义置入滤镜流程/testdata/ph_menu_69.bin'),
                      ('71', '实验/71_修复INSTA分发/ph_menu.bin'),
-                     ('72', '实验/72_滤镜记忆/ph_menu.bin')):
+                     ('72', 'Lightning-L口/ph_menu.bin')):
         path = ROOT / rel
         if not path.exists():
             print(f'  [跳过] Build {tag}: 缺 {rel}')
@@ -123,7 +123,7 @@ def main():
             ok &= check(M.get_seg(M.parse_records(a), M.MENU_BASE),
                         [e[0] for e in ea], '增一档')
     # 满容量 n=12
-    base = ROOT / 'patch/ph_menu.bin'
+    base = ROOT / '自定义置入滤镜流程/testdata/ph_menu_69.bin'
     if base.exists():
         template = base.read_bytes()
         entries = M.read_template_entries(template)

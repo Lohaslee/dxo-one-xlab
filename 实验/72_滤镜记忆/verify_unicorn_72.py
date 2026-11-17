@@ -26,7 +26,7 @@ from unicorn.arm_const import (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2,
 import 管理滤镜 as M
 
 PH = HERE / 'ph_menu.bin'
-PKG_DIR = ROOT / 'patch/DXO_FILTERS'
+PKG_DIR = ROOT / 'Lightning-L口/DXO_FILTERS'
 CODE_LO, CODE_SIZE = 0x08C00000, 0x003F0000
 SCRATCH_LO, SCRATCH_SIZE = 0x08FF0000, 0x20000
 STOP = 0x08FF1000

@@ -20,7 +20,7 @@
 
 ## 2. 第三方 v26 触屏补丁 —— **包含 5 个运行时依赖**
 
-`deps/` 下的 5 个文件是 `autoexec.ash` 启动所必需的，来自社区公开分享的
+`Lightning-L口/dxot/`（4 件）与 `Lightning-L口/touch_prefs.bin` 是 `autoexec.ash` 启动所必需的，来自社区公开分享的
 「DxO ONE 触屏补丁 v26」iOS / Lightning 固件移植版。**不是本仓库原创，未做任何修改。**
 
 | 项目 | 内容 |
@@ -31,7 +31,7 @@
 | 许可状态 | **未见明确开源许可证，也未见禁止再分发的声明**；原包以完整文件 + SHA-256 清单形式公开分享 |
 | 适用固件 | 仅 iOS / Lightning `3.2.0 (ecef5ef809)`；USB-C 原生版 `267b1a9e02` 请用林达原版 v26 |
 
-`deps/SHA256SUMS.txt` 的校验值与移植包 README 公布的原值一致。
+`Lightning-L口/SHA256SUMS.txt` 的校验值与移植包 README 公布的原值一致。
 完整来源、部署规则与 `touch_prefs.bin` 的注意事项见 [DEPENDENCIES.md](DEPENDENCIES.md)。
 
 维护者**不主张**这些文件的任何权利、**不授予**其使用许可，也不对其可用性、
@@ -40,7 +40,7 @@
 
 ## 3. 第三方 v26 触屏补丁（USB-C 原版） —— **整包包含**
 
-`USB-C触屏补丁v26/` 是林达 v26 触屏补丁的 **USB-C 原生版完整安装包**
+`USB-C-C口/` 是林达 v26 触屏补丁的 **USB-C 原生版完整安装包**
 （`autoexec.ash` + `touch_prefs.bin` + `p01..p35.bin`，共 37 件，逐字节未改），
 供 USB-C 机型用户使用。**不是本仓库原创。**
 
@@ -57,9 +57,9 @@
 本仓库仍**不包含**：v26 一键安装器 `.exe`、官方安装包、
 v26 源码压缩包（第三方完整研究工程）及除上述参照表外的任何原厂固件提取物。
 
-## 4. 色彩查找表（CC 表）—— **包含 10 个二进制**
+## 4. 色彩查找表（CC 表）—— **包含 11 个二进制**
 
-`patch/DXO_FILTERS/` 下的 10 个 `.bin` 是机内 CC 表打包文件（每张 87,720 B，
+`Lightning-L口/DXO_FILTERS/` 下的 11 个 `.bin` 是机内 CC 表打包文件（每张 87,720 B，
 含 5 个 17,536 B 槽位）。
 
 | 档位 | 文件 | 来源性质 |
@@ -68,6 +68,7 @@ v26 源码压缩包（第三方完整研究工程）及除上述参照表外的�
 | VELVIA / G200 / PORTRA / HP5 | `lut_vel.bin` 等 | 由第三方 `.cube` 素材转换而来 |
 | R-POSI / R-HIBW | `lut_posi.bin` / `lut_hibw.bin` | 由第三方 Ricoh GR II 风格 `.cube` 转换而来 |
 | FUYUNO / KYUSHU / SATOBI | `lut_fuyu.bin` 等 | 由第三方 Pentax K12 风格 `.cube` 转换而来 |
+| INSTA | `lut_insta.bin` | 由第三方 Dehancer Instax+2383 风格 `.cube` 转换而来 |
 
 **本仓库不包含任何 `.cube` 源文件**，只包含转换后的机内表。上述第三方 LUT
 素材的许可条件各不相同，通常限制再分发；维护者**不主张**这些素材或其派生表的
@@ -79,7 +80,7 @@ v26 源码压缩包（第三方完整研究工程）及除上述参照表外的�
 
 ## 5. 补丁自身
 
-`patch/autoexec.ash`、`patch/ph_probe.ash`、`patch/ph_menu.bin` 及菜单融合逻辑
+`Lightning-L口/autoexec.ash`、`ph_probe.ash`、`ph_menu.bin` 及菜单融合逻辑
 为维护者原创，适用 [LICENSE](LICENSE) 第 1 节（All Rights Reserved）。
 
 ## 6. 商标

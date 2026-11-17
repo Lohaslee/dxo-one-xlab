@@ -28,9 +28,9 @@
 | 项目 | 说明 |
 |---|---|
 | **授权** | 补丁程序与二进制 **All Rights Reserved**；允许个人在自己的设备上非商业使用，禁止再分发 / 商用 / 公开衍生版本。文档为 CC BY-NC 4.0。见 [LICENSE](LICENSE)。 |
-| **第三方依赖** | `deps/` 下的 5 个文件**不是本仓库原创**，来自林达 (@PENTAX_FA43mm) 的 v26 触屏补丁与 Eli 的 iOS 移植版，未见明确许可证。**部署前必读 [DEPENDENCIES.md](DEPENDENCIES.md)**。 |
+| **第三方依赖** | `Lightning-L口/dxot/` 与 `touch_prefs.bin`（5 个运行时依赖）**不是本仓库原创**，来自林达 (@PENTAX_FA43mm) 的 v26 触屏补丁与 Eli 的 iOS 移植版，未见明确许可证。**部署前必读 [DEPENDENCIES.md](DEPENDENCIES.md)**。 |
 | **不是完整固件** | 不含完整固件镜像、官方安装包或任何可刷写的原厂镜像；仅含一枚 17,536 B 的原厂 CC 参照表（`自定义置入滤镜流程/stock/Imx183_Cc_Still1.bin`，DxO 版权内容，经发布者决定随包分发，权利人可要求移除，见 [THIRD_PARTY.md](THIRD_PARTY.md)）。补丁只在开机时载入运行内存，不刷固件。 |
-| **适用机型** | **iOS / Lightning 固件 `3.2.0 (ecef5ef809)`** 用 `patch/` 滤镜补丁；**USB-C 原生版（`267b1a9e02`）** 用本仓库 [USB-C触屏补丁v26/](USB-C触屏补丁v26/README.md)（林达 v26 触屏补丁，无滤镜功能）。**两套互不兼容，禁止混装。** |
+| **适用机型** | **iOS / Lightning 固件 `3.2.0 (ecef5ef809)`** 用 [Lightning-L口/](Lightning-L口/README.md) 滤镜补丁整包；**USB-C 原生版（`267b1a9e02`）** 用 [USB-C-C口/](USB-C-C口/README.md)（林达 v26 触屏补丁，无滤镜功能）。**两个目录都是「整包复制到卡根即用」，两套互不兼容，禁止混装。** |
 | **验证状态** | Build 72 已写卡部署、**实机验收用例 0–7 全过**（2026-11-17，用户亲自验收）：进页不崩可遍历 11 档；记忆闭环开机恢复上次档；无记忆/坏文件回退预装 GOLD200；拍照并发且照片直出与所选滤镜客观一致；快速连切不黑屏；断电韧性不卡死；六页/半按/回预览回归与 71 一致。菜单包 `ph_menu.bin` 5884 B，magic `0x50473547`（G5GP）。字体绘制另有离线 unicorn 真实执行 `menu_draw_text` / `menu_text_at` 后 dump 64×48 帧缓冲的逐档核对。已知观察：预览切档偏慢（SD 同步读卡既有暴露面，非 72 引入）。 |
 | **风险** | 写卡可能导致照片丢失、卡损坏或保修失效。先备份、逐文件校验、正常弹出卷后再拔卡。 |
 
@@ -100,36 +100,32 @@
 > 两个版本的固件内存地址完全不同，**互相不兼容**。把本套补丁复制进卡会
 > 覆盖卡根的 `autoexec.ash`（两套都以它为开机入口）——你的触屏补丁会立刻
 > 失效，而本套在 USB-C 固件上又装不上，结果就是开机变回原厂行为。
-> USB-C 用户请用本仓库的 [USB-C触屏补丁v26/](USB-C触屏补丁v26/README.md)；误装后恢复只需：删掉本套 6 项
+> USB-C 用户请用本仓库的 [USB-C-C口/](USB-C-C口/README.md)；误装后恢复只需：删掉本套 6 项
 > （`autoexec.ash`、`ph_probe.ash`、`ph_menu.bin`、`DXO_FILTERS/`、
 > `dxot/`、`PH_DIAG/`），再把 v26 的 `autoexec.ash` 复制回卡根（
 > `p*.bin` 与 `touch_prefs.bin` 未被本套触碰，无需重装）。
 
-**第一步：运行时依赖（只需装一次）**
+**整包复制（Lightning / L口，Build 72）**
 
 ```bash
-cd deps && shasum -a 256 -c SHA256SUMS.txt
+cd Lightning-L口 && shasum -a 256 -c SHA256SUMS.txt   # 19 件全 OK 再往下
 ```
 
-把 `deps/dxot/` **整个目录**复制到卡根目录；`touch_prefs.bin` 按
-[DEPENDENCIES.md](DEPENDENCIES.md) 的规则处理（卡上已有就保留）。
+把 `Lightning-L口/` 里的内容**全部**复制到卡根目录（和 `DCIM` 同级）：
+`autoexec.ash`、`ph_probe.ash`、`ph_menu.bin`、`touch_prefs.bin`、
+`dxot/`（4 件触屏运行时依赖）、`DXO_FILTERS/`（11 个 `.bin`，含第 11 档 INSTA）、
+`PH_DIAG/`（空目录，里面只有一个 `.gitkeep` 占位）。
+这是一个**整包**，无需再分别拼补丁与依赖；细节见 [Lightning-L口/README.md](Lightning-L口/README.md)。
 
-**第二步：滤镜补丁（Build 72）**
-
-```bash
-cd patch && shasum -a 256 -c SHA256SUMS.txt
-```
-
-把 `patch/autoexec.ash`、`patch/ph_probe.ash`、`patch/ph_menu.bin` 复制到**卡根目录**；
-把 `patch/DXO_FILTERS/` 整个目录（11 个 `.bin`，含第 11 档 INSTA）复制到**卡根目录**；
-把 `patch/PH_DIAG/` 目录复制到**卡根目录**（里面只有一个 `.gitkeep` 占位）。
+> `touch_prefs.bin` 卡上**已有就不要覆盖**（相机自己的参数记忆），按
+> [DEPENDENCIES.md](DEPENDENCIES.md) 的规则处理；`dxot/` **整目录**复制，不要平铺到根目录。
 
 > ⚠️ **`PH_DIAG/` 目录必须存在**。相机端的 ash 脚本没有 `mkdir` 命令，
 > 采集脚本要往 `PH_DIAG\` 里写诊断文件；目录不在时采集会静默失败
 > （菜单与滤镜仍正常工作，只是没有诊断数据）。
 > 若在相机里格式化过卡，需要重新把这个空目录拷进去。
 
-- 逐文件回读 SHA-256，与各自的 `SHA256SUMS.txt` 比对；
+- 逐文件回读 SHA-256，与 `Lightning-L口/SHA256SUMS.txt` 比对；
 - 正常弹出卷后拔卡，装回相机开机，**等约 3 秒**再触屏。
 
 > **滤镜记忆（Build 72 新增）**：每次切档成功，相机会把上次档位写进卡根 `ph_last.bin`（8 字节）；
@@ -184,16 +180,16 @@ DxO ONE 机内滤镜补丁装到我的相机 SD 卡上。严格按步骤执行�
 - 结束用系统正常弹出（macOS: diskutil eject；Windows: 安全删除硬件），不要强制卸载。
 
 【步骤】
-1. 在 deps/ 与 patch/ 下分别执行 shasum -a 256 -c SHA256SUMS.txt（Linux 用 sha256sum -c），
-   确认全部 OK 再往下。
+1. 在 Lightning-L口/ 下执行 shasum -a 256 -c SHA256SUMS.txt（Linux 用 sha256sum -c），
+   确认 19 件全部 OK 再往下。
 2. 备份卡根现有 autoexec.ash / ph_menu.bin / ph_probe.ash / dxot/ 到卡外备份目录（存在才备份）。
-3. 复制 deps/dxot/ 整个目录到卡根，得到 <卡>/dxot/（m01.ash、m02.ash、a.bin、b.bin）。
-4. deps/touch_prefs.bin：卡根没有才复制；已有则跳过并告诉我。
-5. 复制 patch/autoexec.ash、patch/ph_probe.ash、patch/ph_menu.bin 到卡根，覆盖同名文件。
-6. 复制 patch/DXO_FILTERS/ 整个目录到卡根（11 个 lut_*.bin，含 INSTA），覆盖同名文件。
+3. 复制 Lightning-L口/dxot/ 整个目录到卡根，得到 <卡>/dxot/（m01.ash、m02.ash、a.bin、b.bin）。
+4. Lightning-L口/touch_prefs.bin：卡根没有才复制；已有则跳过并告诉我。
+5. 复制 Lightning-L口/autoexec.ash、ph_probe.ash、ph_menu.bin 到卡根，覆盖同名文件。
+6. 复制 Lightning-L口/DXO_FILTERS/ 整个目录到卡根（11 个 lut_*.bin，含 INSTA），覆盖同名文件。
 7. 在卡根创建空目录 PH_DIAG/（相机端 ash 没有 mkdir，必须由电脑建；已存在就跳过）。
-8. 逐文件回读卡上内容并算 SHA-256 与仓库清单比对：14 个补丁件（3 个 ph_* + 11 个 lut_*.bin）
-   加 4 个 dxot 件，共 18 件；若第 4 步复制了 touch_prefs.bin 则再多 1 件。
+8. 逐文件回读卡上内容并算 SHA-256 与 Lightning-L口/SHA256SUMS.txt 比对：14 个补丁件
+   （3 个 ph_* + 11 个 lut_*.bin）加 4 个 dxot 件，共 18 件；若第 4 步复制了 touch_prefs.bin 则再多 1 件。
 9. 执行 sync，然后正常弹出卷。
 
 【汇报】
@@ -254,7 +250,7 @@ B. 彻底清理：删除卡根 autoexec.ash、ph_menu.bin、ph_probe.ash、PH_DI
 | **69** | **复合定稿**：数据与 Build 66 逐字节一致，仅换独立 magic | 历史发布（被 72 取代）；菜单包 `ph_menu.bin` 5268 B，magic `0x50473544`。已写卡部署、13 件写入校验通过，SATOBI 坑位已恢复 |
 | ~~70~~ | ~~新增第 11 档 INSTA（Dehancer Instax+2383，复合 pass），十一档循环~~ | **已撤回**：分发链 `.Ldc_insta` 不可达，idx10 误显 SATOBI（装表正确、显示错误）；菜单包 5328 B，magic `0x50473545`。被 71 取代 |
 | **71** | **修复 INSTA 分发**：分发链补 `cmp r6,#10; beq`（+8 B），idx10 正确显示 INSTA | 实机验收通过（2026-11-14）：十一档循环、idx10=INSTA、INSTA 指纹 `0x121a0a3b`。菜单包 5336 B，magic `0x50473546`；被 72 取代 |
-| **72** | **滤镜记忆**：在 71 十一档基础上，切档成功即存 `ph_last.bin`、开机自动恢复上次档；缺失/损坏/越界回退预装 GOLD200。修复固件 `fread/fwrite` 七参调用约定（fp 在栈 arg7），解决真机写 0 字节 | **当前发布版本**；菜单包 `ph_menu.bin` 5884 B，magic `0x50473547`（G5GP）。**实机验收用例 0–7 全过**（2026-11-17）；已提升到 `patch/`（14 件含第 11 档 INSTA） |
+| **72** | **滤镜记忆**：在 71 十一档基础上，切档成功即存 `ph_last.bin`、开机自动恢复上次档；缺失/损坏/越界回退预装 GOLD200。修复固件 `fread/fwrite` 七参调用约定（fp 在栈 arg7），解决真机写 0 字节 | **当前发布版本**；菜单包 `ph_menu.bin` 5884 B，magic `0x50473547`（G5GP）。**实机验收用例 0–7 全过**（2026-11-17）；已提升到 `Lightning-L口/` 整包（14 件补丁含第 11 档 INSTA + 触屏运行时依赖） |
 
 直通 vs 复合的实机结论：离线模拟里直通更高对比，但实机观感直通偏灰、
 复合版（原厂基础影调 + 滤镜）胜出；`--direct` 模式保留在转换器中备用，不再用于出货。
@@ -267,7 +263,7 @@ Build 69 与 Build 66 的机器码与 LUT 数据**零差异**（仅诊断 magic 
 
 **Build 72 相对 69/71 的增量**：`ph_menu.bin`（5884 B，记忆核心 + 七参文件 API 修复）、
 `ph_probe.ash`（3563 B，新增 `ph_save_stat.bin` 等记忆诊断采样）、新增第 11 档 `DXO_FILTERS/lut_insta.bin`；
-`autoexec.ash` 与其余 10 个 LUT 包不变。从 69/71 升级请**整组替换 `patch/` 14 件**（含新增 INSTA），
+`autoexec.ash` 与其余 10 个 LUT 包不变。从 69/71 升级请**整组替换 `Lightning-L口/` 的 14 件补丁文件**（含新增 INSTA），
 不要只换 `ph_menu.bin`（旧 10 档清单缺 INSTA 载荷、旧 probe 无记忆诊断）。记忆文件 `ph_last.bin` 由相机自建，无需部署。
 
 从 60 / 61 升级请**三件一起换**（只换 `ph_menu.bin` 会有诊断文件写错位置、
@@ -281,10 +277,9 @@ Build 69 与 Build 66 的机器码与 LUT 数据**零差异**（仅诊断 magic 
 
 | 路径 | 内容 |
 |---|---|
-| `patch/` | Build 72 的 14 件构建产物（含第 11 档 INSTA）+ `SHA256SUMS.txt` + `PH_DIAG/`（空目录占位，**必须一起拷到卡根**） |
-| `deps/` | 5 个第三方运行时依赖 + `SHA256SUMS.txt`（**非本仓库原创**） |
-| `自定义置入滤镜流程/` | 自定义滤镜：`.cube` → 机内 CC 表转换内核（已验证）+ 测试 + 原厂参照表 `stock/` + 置入说明 + AI 提示词 |
-| `USB-C触屏补丁v26/` | **USB-C 机型专用**：林达 v26 触屏补丁原包（37 件 + 校验清单，非本仓库原创，无滤镜功能） |
+| `Lightning-L口/` | **Lightning / L口 整包**（Build 72）：14 件补丁产物（含第 11 档 INSTA）+ `dxot/` 与 `touch_prefs.bin`（5 件第三方触屏依赖）+ `PH_DIAG/` 空目录占位 + `README.md` + `SHA256SUMS.txt`（19 件卡文件）。**整包复制到卡根即用** |
+| `USB-C-C口/` | **USB-C / C口 整包**：林达 v26 触屏补丁原包（37 件卡文件 + README + 校验清单，非本仓库原创，无滤镜功能）。**整包复制到卡根即用** |
+| `自定义置入滤镜流程/` | 自定义滤镜：`.cube` → 机内 CC 表转换内核（已验证）+ 测试 + 原厂参照表 `stock/` + Build 69 回归夹具 `testdata/` + 置入说明 + AI 提示词 |
 | `DEPENDENCIES.md` | 依赖来源、署名、适用固件与部署规则 |
 | `THIRD_PARTY.md` | 第三方材料与商标声明 |
 | `CONTRIBUTING.md` | 反馈方式与提交红线 |
