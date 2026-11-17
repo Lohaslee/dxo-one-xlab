@@ -2,7 +2,7 @@ echo PH-START
 savebin c:\PH_DIAG\ph_init_state.bin 0x08ef6100 l 0x10
 sleep 6
 writel 0x08e755ec 0xe12fff1e
-writel 0x97231b4 0x8ef3af4
+writel 0x97231b4 0x8ef3afc
 alarm c:\DXO_FILTERS\lut_gold.bin
 writel 0x97231b4 0x92401c0
 echo PH-BOOTSTRAP-RETURNED-CHECK-STATE
@@ -84,5 +84,6 @@ savebin c:\PH_DIAG\ph_log_end.bin 0x08ef61f0 l 0x210
 savebin c:\PH_DIAG\ph_slots_end.bin 0x092d72e8 l 0x15680
 savebin c:\PH_DIAG\ph_state_end.bin 0x08ef6000 l 0x220
 savebin c:\PH_DIAG\ph_timing.bin 0x08ef6180 l 0x10
+savebin c:\PH_DIAG\ph_save_stat.bin 0x08ef6190 l 0x14
 savebin c:\PH_DIAG\ph_durations.bin 0x08ef6600 l 0x80
 echo PH-END
