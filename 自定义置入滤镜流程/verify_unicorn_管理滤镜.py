@@ -32,7 +32,10 @@ STOP = 0x08FF1000
 
 
 def run_idx(menu_text: bytes, idx: int):
-    """真执行 menu_draw_active(current=idx)，返回 menu_text_at 收到的名字串。"""
+    """真执行 menu_draw_FLUSH(current=idx, r7=1)，返回 menu_text_at 收到的名字串。
+    用 flush 而非 active：flush 走 .Ldc_flush 必调 fw_area，能暴露 fw_area 重定位失配
+    （active r7=0 跳过 fw_area，对此类进页崩溃无感）。同时守卫固件入口绝对地址：
+    若 bl 落进 fw_clear/fw_area 函数中间（而非精确入口）立即判失败。"""
     parts = M.split_menu(menu_text)
     # menu_text_at = emit 处 bl 的目标
     words = struct.unpack_from(f'<{len(menu_text)//4}I', menu_text, 0)
@@ -59,9 +62,14 @@ def run_idx(menu_text: bytes, idx: int):
             r0 = mu_.reg_read(UC_ARM_REG_R0)
             raw = bytes(mu_.mem_read(r0, 32))
             captured.append(raw.split(b'\0')[0].decode('ascii'))
+        # 固件入口守卫：只允许精确入口，落进函数中间=重定位失配（实机进页崩溃源）
+        if FW_CLEAR <= addr < FW_CLEAR + 0x40 and addr != FW_CLEAR:
+            raise RuntimeError(f'bl fw_clear 落点 {addr:#x} ≠ 入口 {FW_CLEAR:#x}（重定位失配）')
+        if FW_AREA <= addr < FW_AREA + 0x40 and addr != FW_AREA:
+            raise RuntimeError(f'bl fw_area 落点 {addr:#x} ≠ 入口 {FW_AREA:#x}（重定位失配）')
 
     mu.hook_add(UC_HOOK_CODE, hook)
-    # menu_draw_flush：push{r4,r6,r7,lr}=0xE92D40D0，mov r7,#1 后 bl menu_draw_common
+    # menu_draw_flush：第一个 push{r4,r6,r7,lr}=0xE92D40D0，mov r7,#1（flush 必调 fw_area）
     mda = next(i * 4 for i, w in enumerate(words) if w == 0xE92D40D0)
     mu.emu_start(M.MENU_BASE + mda, STOP, count=500000)
     if not captured:

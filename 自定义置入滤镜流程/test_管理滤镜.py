@@ -115,7 +115,13 @@ def main():
         for off in (M.P_DISP_BHI, M.P_F1_SETUP_A, M.P_F1_SETUP_B):
             m[off:off + 4] = b"\0" * 4
         return bytes(m)
-    check("T3a 规范布局 F1/F2 逐字节一致", cp["F1"] == parts["F1"] and cp["F2"] == parts["F2"])
+    def mask_f1(F1):
+        m = bytearray(F1)
+        for off in (M.F1_BL_CLEAR, M.F1_ADR_WAIT, M.F1_BL_AREA, M.F1_ADR_INDEX, M.F1_ADR_FONT):
+            m[off:off + 4] = b"\0" * 4
+        return bytes(m)
+    check("T3a 规范布局 F1(除跨区引用)/F2 逐字节一致",
+          mask_f1(cp["F1"]) == mask_f1(parts["F1"]) and cp["F2"] == parts["F2"])
     check("T3b 规范布局 P(除三条进页分支) 一致", mask_p(parts["P"]) == mask_p(cp["P"]))
     check("T3c 模板静态分发", _ok(M.verify_dispatch, menu69, names69))
     check("T3d 规范布局静态分发", _ok(M.verify_dispatch, canon, names69))
@@ -130,6 +136,12 @@ def main():
     for off in (M.P_F1_SETUP_A, M.P_F1_SETUP_B):
         struct.pack_into("<I", broken, off, struct.unpack_from("<I", parts["P"], off)[0])
     check("T3g 进页分支失配被拒（进页即崩根因）", not _ok(M.verify_dispatch, bytes(broken), names69))
+    # T3h 崩溃根因回归②：F1 的 fw_area bl 若未随 F1 平移重定位（落进固件函数中间），
+    # menu_draw_flush 进页必调 fw_area→实机进页即崩；分发校验必须拒绝（active 路径不调 fw_area 故无感）。
+    broken2 = bytearray(canon)
+    struct.pack_into("<I", broken2, cp["f1_start"] + M.F1_BL_AREA,
+                     struct.unpack_from("<I", parts["F1"], M.F1_BL_AREA)[0])
+    check("T3h fw_area 重定位失配被拒（进页即崩根因②）", not _ok(M.verify_dispatch, bytes(broken2), names69))
 
     print("== T4 ph_menu 增删 menu+core+STR 一致 ==")
     def ph_consistent(ph, ents):

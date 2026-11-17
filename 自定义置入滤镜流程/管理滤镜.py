@@ -48,6 +48,11 @@ F1_UNKNOWN_OFF = 0x20    # .Ldc_unknown 在 F1 内偏移
 F1_SETUP_OFF = 0x68      # .Ldc_setup 在 F1 内偏移（movw/movt r4,#0x08EF6000）
 F1_ADR_INDEX = 0x114     # adr r9,menu_index 在 F1 内偏移
 F1_ADR_FONT = 0x12C      # adr r9,menu_font  在 F1 内偏移
+F1_BL_CLEAR = 0x30       # .Ldc_unknown bl fw_clear（固件绝对地址，F1 平移须重定位）
+F1_ADR_WAIT = 0x3C       # .Ldc_unknown adr r0,WAIT（N 区，增删须重定位）
+F1_BL_AREA = 0x64        # .Ldc_flush bl fw_area（固件绝对地址；flush 路径每次进页必调）
+FW_CLEAR_ADDR = 0x08ECA0BC
+FW_AREA_ADDR = 0x08EE9D04
 F2_FONT_OFF = 96         # menu_font 在 F2 内偏移（menu_index 占 96B）
 F1_LEN = 420             # emit+unknown+flush+return+text_at+draw_text 恒定
 F2_LEN = 648             # menu_index(96)+menu_font(23*24=552) 恒定
@@ -257,13 +262,43 @@ def patch_P(P: bytes, n: int, f1_start: int) -> bytes:
     return bytes(b)
 
 
-def patch_F1(F1: bytes, f1_start: int, f2_start: int) -> bytes:
+def patch_F1(F1: bytes, f1_start: int, f2_start: int, n_start: int,
+             wait_off: int, tmpl: dict) -> bytes:
+    """重定位 F1 内所有跨区 PC 相对引用（F1 整体随 V 长度平移时必须同步）。
+
+    - F1 内部引用（bl menu_text_at / menu_draw_text、区内分支）：源与目标同平移，自然保持，不动。
+    - 固件 bl（fw_clear / fw_area，绝对地址固定）：目标不随菜单平移，须按新 F1 位置重编码。
+      漏补则 menu_draw_flush(r7=1) 调 fw_area 跳进固件函数中间→进滤镜页即崩；
+      menu_draw_active(r7=0) 不调 fw_area，故旧 unicorn 门对此无感。
+    - N 区 WAIT adr：增删时 N 长度变化，WAIT 偏移改变，须指向新 N 的 WAIT。
+    - F2 index/font adr：F2 块内偏移恒定，指向新 F2 对应位置。
+    """
     b = bytearray(F1)
-    for off, dst in ((F1_ADR_INDEX, f2_start), (F1_ADR_FONT, f2_start + F2_FONT_OFF)):
-        old = struct.unpack_from('<I', b, off)[0]
-        if old & 0xFFFFF000 != 0xE28F9000:
-            raise ValueError(f'F1 adr 点 {off:#x} 不符：{old:#010x}')
-        struct.pack_into('<I', b, off, enc_adr(9, f1_start + off, dst))
+    tf1, tn, tf2 = tmpl['f1_start'], tmpl['n_start'], tmpl['f2_start']
+    words = struct.unpack(f'<{len(F1)//4}I', F1)
+    for i, w in enumerate(words):
+        off = i * 4
+        src_old = tf1 + off
+        if w & 0x0E000000 == 0x0A000000:          # b / bl（含 link 位）
+            tgt = dec_branch(w, src_old)
+            is_adr, rd, cond, link = False, 0, w >> 28, bool(w & 0x01000000)
+        elif w & 0xFFFF0000 == 0xE28F0000:        # adr rd, pc, #imm（rd 任意，掩码忽略 rd 字段）
+            tgt = src_old + 8 + dec_imm(w)
+            is_adr, rd, cond, link = True, (w >> 12) & 0xF, 0, False
+        else:
+            continue
+        if tf1 <= tgt < tf1 + len(F1):            # F1 内部，自然平移
+            continue
+        if tgt >= tf2:                            # F2（index/font）
+            new = f2_start + (tgt - tf2)
+        elif tgt >= tn:                           # N（仅 WAIT，用新偏移）
+            new = n_start + wait_off
+        else:                                     # 固件绝对地址（fw_clear/fw_area）
+            new = tgt
+        if is_adr:
+            struct.pack_into('<I', b, off, enc_adr(rd, f1_start + off, new))
+        else:
+            struct.pack_into('<I', b, off, enc_branch(cond, f1_start + off, new, link=link))
     return bytes(b)
 
 
@@ -290,7 +325,7 @@ def rebuild_menu_text(template_menu: bytes, names, canonical: bool = False) -> b
     n_start = f1_start + F1_LEN
     f2_start = n_start + len(N_new)
     P_new = patch_P(P, n, f1_start)
-    F1_new = patch_F1(F1, f1_start, f2_start)
+    F1_new = patch_F1(F1, f1_start, f2_start, n_start, len(N_new) - 8, parts)
     menu = P_new + V_new + F1_new + N_new + F2
     if len(menu) > MENU_LIMIT - MENU_BASE:
         raise ValueError(f'menu.text {len(menu)}B 超出分配区 {MENU_LIMIT-MENU_BASE}B')
@@ -517,6 +552,23 @@ def verify_dispatch(menu: bytes, names) -> dict:
     for off, tag in ((P_F1_SETUP_A, 'A'), (P_F1_SETUP_B, 'B')):
         assert pw[off // 4] & 0x0F000000 == 0x0A000000, f'进页分支{tag} 非分支指令'
         assert dec_branch(pw[off // 4], off) == f1_start + F1_SETUP_OFF, f'进页分支{tag}目标不符'
+    # F1 跨区引用：固件 bl 须保持绝对目标（fw_clear/fw_area），WAIT/index/font adr 须落在新区。
+    # 漏补 fw_area 重定位→menu_draw_flush 跳进固件函数中间→进页即崩（active 路径不调 fw_area 故无感）。
+    F1 = parts['F1']
+    for off, fw, tag in ((F1_BL_CLEAR, FW_CLEAR_ADDR, 'fw_clear'),
+                         (F1_BL_AREA, FW_AREA_ADDR, 'fw_area')):
+        w = struct.unpack_from('<I', F1, off)[0]
+        assert w & 0x0E000000 == 0x0A000000 and w & 0x01000000, f'F1+{off:#x} 非 bl'
+        assert MENU_BASE + dec_branch(w, f1_start + off) == fw, f'F1 bl {tag} 目标不符（进页崩溃源）'
+    w = struct.unpack_from('<I', F1, F1_ADR_WAIT)[0]
+    assert w & 0xFFFFF000 == 0xE28F0000, 'F1 WAIT 非 adr r0'
+    wt = f1_start + F1_ADR_WAIT + 8 + dec_imm(w)
+    assert parts['n_start'] <= wt < parts['f2_start'] and menu[wt:wt + 5] == b'WAIT\0', 'F1 WAIT adr 目标不符'
+    for off, dst, tag in ((F1_ADR_INDEX, parts['f2_start'], 'index'),
+                          (F1_ADR_FONT, parts['f2_start'] + F2_FONT_OFF, 'font')):
+        w = struct.unpack_from('<I', F1, off)[0]
+        assert w & 0xFFFFF000 == 0xE28F9000, f'F1 {tag} 非 adr r9'
+        assert f1_start + off + 8 + dec_imm(w) == dst, f'F1 {tag} adr 目标不符'
     vw = struct.unpack_from(f'<{len(V)//4}I', V, 0)
     dispatch, i = {}, 0
     while i < len(vw) and (vw[i] & 0xFFFFF000) == 0xE3560000:
@@ -585,7 +637,8 @@ def _selftest():
         except AssertionError as e:
             ok = False
             print(f'    模板静态分发校验 ✗ {e}')
-        # 3) 规范布局重生成：F1/F2 逐字节一致，P 仅三条进页分支(bhi+68c+6a0)随 V 长度变，N 名字等价
+        # 3) 规范布局重生成：F2 逐字节一致；F1 仅跨区引用(fw_clear/fw_area/WAIT/index/font)随平移重定位；
+        #    P 仅三条进页分支(bhi+68c+6a0)随 V 长度变；N 名字等价
         canon = rebuild_menu_text(menu, names, canonical=True)
         cp = split_menu(canon)
         def mask_p_branches(P):
@@ -593,7 +646,12 @@ def _selftest():
             for off in (P_DISP_BHI, P_F1_SETUP_A, P_F1_SETUP_B):
                 m[off:off + 4] = b'\0' * 4
             return bytes(m)
-        fixed_same = (cp['F1'] == parts['F1'] and cp['F2'] == parts['F2']
+        def mask_f1_refs(F1):
+            m = bytearray(F1)
+            for off in (F1_BL_CLEAR, F1_ADR_WAIT, F1_BL_AREA, F1_ADR_INDEX, F1_ADR_FONT):
+                m[off:off + 4] = b'\0' * 4
+            return bytes(m)
+        fixed_same = (mask_f1_refs(cp['F1']) == mask_f1_refs(parts['F1']) and cp['F2'] == parts['F2']
                       and mask_p_branches(parts['P']) == mask_p_branches(cp['P'])
                       and decode_names(cp['N']) == names)
         ok &= fixed_same
@@ -604,7 +662,7 @@ def _selftest():
             vok = False
             ok = False
             print(f'    规范布局分发校验 ✗ {e}')
-        print(f'    规范布局：F1/F2 逐字节一致+P(除三条进页分支)+N名字等价 {"✓" if fixed_same else "✗"}，'
+        print(f'    规范布局：F1(除跨区引用)/F2 逐字节一致+P(除三条进页分支)+N名字等价 {"✓" if fixed_same else "✗"}，'
               f'分发校验 {"✓" if vok else "✗"}，V {len(parts["V"])}B->{len(cp["V"])}B')
         # 4) 增删场景
         if n >= 2:
