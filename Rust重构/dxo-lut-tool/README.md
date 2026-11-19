@@ -11,15 +11,15 @@
 
 ## 安装与升级
 
-两包由提交 `13b8c82` 的[同一次 CI](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44521929054)构建。登录 GitHub 后从 Artifacts 下载 `macos-arm64-dmg` 或 `windows-x64-setup`，解压后核对附件中的 `SHA256SUMS.txt`。附件有保留期限，仓库不跟踪安装包二进制；过期可从源码重新构建。
+两包由提交 `13b8c82` 的[同一次 CI](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44521929054)构建，已上传到 [GitHub Releases](https://github.com/Lohaslee/dxo-one-xlab/releases/tag/v0.1.0)。按系统下载 DMG 或 Setup.exe，同时下载 `SHA256SUMS.txt`，核对其中对应文件的值。Release 另附对应源码包和 `INSTALL.md`；仓库不跟踪安装包二进制。
 
 macOS 校验：
 
 ```bash
-shasum -a 256 -c SHA256SUMS.txt
+shasum -a 256 DXO-ONE-XLAB-0.1.0-macOS-arm64.dmg
 ```
 
-Windows PowerShell 校验（将结果与清单中的对应条目核对）：
+将结果与清单中的对应条目核对。Windows PowerShell 校验：
 
 ```powershell
 Get-FileHash .\DXO-ONE-XLAB-0.1.0-Windows-x64-Setup.exe -Algorithm SHA256

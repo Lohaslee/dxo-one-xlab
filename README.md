@@ -86,14 +86,14 @@ Build 72 于 2026-11-17 记录相机实机用例 0–7 通过，包括十一档�
 
 ### 安装包与使用说明
 
-**当前提供 0.1.0 测试安装包，尚未正式签名分发。** 两包来自同一提交 `13b8c82`，可在 [GitHub Actions 构建记录](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44521929054) 的 Artifacts 中获取（需登录 GitHub，附件有保留期限）。安装包不随 Git 源码克隆；附件过期后可按[构建说明](Rust重构/dxo-lut-tool/README.md#构建安装包)重新生成。
+**当前提供 0.1.0 测试安装包，尚未正式签名分发。** 请到 [GitHub Releases 下载](https://github.com/Lohaslee/dxo-one-xlab/releases/tag/v0.1.0)，也可直接点击下表。两包来自同一提交 `13b8c82`，[CI 构建记录](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44521929054)可供核对。安装包不随 Git 源码克隆，可按[构建说明](Rust重构/dxo-lut-tool/README.md#构建安装包)重新生成。
 
-| 平台 | 安装包 / 附件 | 安装方式与限制 |
+| 平台 | 安装包下载 | 安装方式与限制 |
 | --- | --- | --- |
-| macOS Apple Silicon | `DXO-ONE-XLAB-0.1.0-macOS-arm64.dmg` / `macos-arm64-dmg` | 打开 DMG，拖入 Applications。最低版本声明为 macOS 11.0，目前仅在 macOS 26.1 arm64 实测；不支持 Intel Mac。ad-hoc 签名、未公证，下载后可能被 Gatekeeper 拦截 |
-| Windows x64 | `DXO-ONE-XLAB-0.1.0-Windows-x64-Setup.exe` / `windows-x64-setup` | 运行安装器，按当前用户安装。已在 Windows 11 x64 CI 验证；Windows 10 尚未实测。未签名，可能出现 SmartScreen 提示；缺少 WebView2 时首次安装需要联网 |
+| macOS Apple Silicon | [下载 DMG](https://github.com/Lohaslee/dxo-one-xlab/releases/download/v0.1.0/DXO-ONE-XLAB-0.1.0-macOS-arm64.dmg) | 打开 DMG，拖入 Applications。最低版本声明为 macOS 11.0，目前仅在 macOS 26.1 arm64 实测；不支持 Intel Mac。ad-hoc 签名、未公证，下载后可能被 Gatekeeper 拦截 |
+| Windows x64 | [下载 Setup.exe](https://github.com/Lohaslee/dxo-one-xlab/releases/download/v0.1.0/DXO-ONE-XLAB-0.1.0-Windows-x64-Setup.exe) | 运行安装器，按当前用户安装。已在 Windows 11 x64 CI 验证；Windows 10 尚未实测。未签名，可能出现 SmartScreen 提示；缺少 WebView2 时首次安装需要联网 |
 
-解压附件后先核对附带的 `SHA256SUMS.txt`；具体校验方法、系统提示处理、升级与数据目录见[桌面安装说明](Rust重构/dxo-lut-tool/README.md#安装与升级)。
+同时下载 [SHA256SUMS.txt](https://github.com/Lohaslee/dxo-one-xlab/releases/download/v0.1.0/SHA256SUMS.txt) 核对所选文件；具体校验方法、系统提示处理、升级与数据目录见[桌面安装说明](Rust重构/dxo-lut-tool/README.md#安装与升级)。
 
 2026-11-19 验证：两端构建及回归通过（每端 23 项 UI 测试；macOS 152 项 Rust 测试通过、4 项忽略）；Mac 安装启动及同包覆盖后的数据文件校验通过，Windows 静默安装、启动、同包覆盖、卸载及中文/空格安装路径验证通过。**尚未验证旧版到新版的数据迁移、缺少 WebView2 的干净 Windows 首装、Windows 交互体验，以及两端 App 真卡写入与相机实拍色彩一致性。**
 
