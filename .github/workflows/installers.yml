@@ -145,10 +145,16 @@ jobs:
       # 放在 upload-artifact 之后：这一项失败也不会让安装包证据消失。
       # runner 就是一台真实 Windows 11 x64，静默安装/卸载属于「安装通过」的可复核证据；
       # 但它没有交互桌面、也没有读卡器，因此不构成「硬件通过」，WebView2 干净机器场景也不在此覆盖。
+      # 上一轮（run 44484929470）闸门自身写法有缺陷：`Test-Path (Join-Path …) -or (…)` 里 -or 被
+      # PowerShell 当成 Test-Path 的参数，报「A parameter cannot be found that matches parameter
+      # name 'or'」，当场 throw，导致拿不到后面几步证据（安装器本身退出码 0）。故本轮改成
+      # foreach + 变量赋值（不在命令后挂布尔运算符），并改为「先收集全部失败、最后统一判定」，
+      # 让一次 run 就能看到安装/启动/卸载各停在哪一步。
       - name: Silent install and uninstall smoke test
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
+          $ErrorActionPreference = 'Continue'
+          $fails = @()
           $rel = 'Rust重构/dxo-lut-tool/dist/release'
           $exe = (Get-ChildItem $rel -Filter '*Setup.exe' | Select-Object -First 1).FullName
           Write-Host ('安装包 ' + $exe + ' 大小 ' + (Get-Item $exe).Length)
@@ -159,31 +165,54 @@ jobs:
           New-Item -ItemType Directory -Force $marker | Out-Null
           $inst = Start-Process -FilePath $exe -ArgumentList '/S' -Wait -PassThru
           Write-Host ('安装器退出码 ' + $inst.ExitCode)
-          if ($inst.ExitCode -ne 0) { throw 'NSIS 静默安装返回非 0' }
-          $dirs = Get-ChildItem $env:LOCALAPPDATA -Directory -ErrorAction SilentlyContinue |
-            Where-Object { Test-Path (Join-Path $_.FullName 'Uninstall DXO-ONE-XLAB.exe') -or (Get-ChildItem $_.FullName -Filter 'uninst*.exe' -ErrorAction SilentlyContinue) }
-          if (-not $dirs) { throw '安装后在 %LOCALAPPDATA% 找不到带卸载器的安装目录' }
-          $dir = ($dirs | Select-Object -First 1).FullName
-          Write-Host ('安装目录 ' + $dir)
-          Get-ChildItem $dir -Recurse -File | Group-Object Extension | ForEach-Object { Write-Host ('  ' + $_.Name + ' x' + $_.Count) }
-          $main = Get-ChildItem $dir -Filter '*.exe' -Recurse |
-            Where-Object { $_.Name -notmatch 'uninst' } | Sort-Object Length -Descending | Select-Object -First 1
-          if (-not $main) { throw '安装目录里找不到主程序 exe' }
-          Write-Host ('主程序 ' + $main.FullName + ' 大小 ' + $main.Length)
-          $env:DXO_DATA_DIR = $marker
-          $app = Start-Process -FilePath $main.FullName -PassThru
-          Start-Sleep -Seconds 12
-          $app.Refresh()
-          if ($app.HasExited) { throw ('启动后自行退出，退出码 ' + $app.ExitCode) }
-          Write-Host ('进程存活 PID ' + $app.Id + ' 主窗口标题 [' + $app.MainWindowTitle + ']')
-          Get-ChildItem $marker -Recurse -ErrorAction SilentlyContinue | Select-Object -First 8 | ForEach-Object { Write-Host ('  数据目录 ' + $_.FullName) }
-          Stop-Process -Id $app.Id -Force
-          Start-Sleep -Seconds 3
-          $un = Get-ChildItem $dir -Filter 'uninst*.exe' | Select-Object -First 1
-          $uninst = Start-Process -FilePath $un.FullName -ArgumentList '/S' -Wait -PassThru
-          Write-Host ('卸载器退出码 ' + $uninst.ExitCode)
-          Start-Sleep -Seconds 3
-          if (Test-Path $dir) { Write-Host '警告：卸载后安装目录仍存在（NSIS 常残留空目录），继续核对主程序' }
-          if (Test-Path $main.FullName) { throw '卸载后主程序仍在' }
-          if (-not (Test-Path $marker)) { throw '卸载把本机数据目录（滤镜库/卡备份所在）删掉了，与交付说明不符' }
+          if ($inst.ExitCode -ne 0) { $fails += ('NSIS 静默安装退出码 ' + [string]$inst.ExitCode) }
+          $dir = ''
+          foreach ($c in @(Get-ChildItem $env:LOCALAPPDATA -Directory -ErrorAction SilentlyContinue)) {
+            $hasUn = Test-Path (Join-Path $c.FullName 'Uninstall DXO-ONE-XLAB.exe')
+            if (-not $hasUn) {
+              $n = @(Get-ChildItem $c.FullName -Filter 'uninst*.exe' -ErrorAction SilentlyContinue).Count
+              if ($n -gt 0) { $hasUn = $true }
+            }
+            if ($hasUn) { $dir = $c.FullName; break }
+          }
+          if ($dir -eq '') {
+            $fails += '安装后在 %LOCALAPPDATA% 找不到带卸载器的安装目录'
+          } else {
+            Write-Host ('安装目录 ' + $dir)
+            Get-ChildItem $dir -Recurse -File | Group-Object Extension | ForEach-Object { Write-Host ('  文件构成 ' + $_.Name + ' x' + $_.Count) }
+            $main = Get-ChildItem $dir -Filter '*.exe' -Recurse | Where-Object { $_.Name -notmatch 'uninst' } | Sort-Object Length -Descending | Select-Object -First 1
+            if (-not $main) {
+              $fails += '安装目录里找不到主程序 exe'
+            } else {
+              Write-Host ('主程序 ' + $main.FullName + ' 大小 ' + $main.Length)
+              $env:DXO_DATA_DIR = $marker
+              $app = Start-Process -FilePath $main.FullName -PassThru
+              Start-Sleep -Seconds 15
+              $app.Refresh()
+              if ($app.HasExited) {
+                $fails += ('启动后自行退出，退出码 ' + [string]$app.ExitCode)
+              } else {
+                Write-Host ('进程存活 PID ' + $app.Id + ' 主窗口标题 [' + $app.MainWindowTitle + ']')
+                $wv = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'webview2' }).Count
+                Write-Host ('WebView2 进程数 ' + $wv)
+                Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 3
+              }
+              Get-ChildItem $marker -Recurse -ErrorAction SilentlyContinue | Select-Object -First 8 | ForEach-Object { Write-Host ('  数据目录 ' + $_.FullName) }
+              $un = Get-ChildItem $dir -Filter 'uninst*.exe' | Select-Object -First 1
+              if (-not $un) {
+                $fails += '安装目录里没有卸载器'
+              } else {
+                $uninst = Start-Process -FilePath $un.FullName -ArgumentList '/S' -Wait -PassThru
+                Write-Host ('卸载器退出码 ' + $uninst.ExitCode)
+                if ($uninst.ExitCode -ne 0) { $fails += ('静默卸载退出码 ' + [string]$uninst.ExitCode) }
+                Start-Sleep -Seconds 5
+                if (Test-Path $main.FullName) { $fails += '卸载后主程序仍在' }
+                if (-not (Test-Path $marker)) { $fails += '卸载把本机数据目录（滤镜库/卡备份所在）删掉了，与交付说明不符' }
+                if (Test-Path $dir) { Write-Host '提示：卸载后安装目录仍存在（NSIS 常残留空目录），已另行核对主程序是否消失' }
+              }
+            }
+          }
+          foreach ($f in $fails) { Write-Host ('FAIL: ' + $f) }
+          if ($fails.Count -gt 0) { throw ('安装闸门未通过（共 ' + [string]$fails.Count + ' 项）') }
           Write-Host '结论：静默安装、启动、卸载均通过；本机数据目录按要求保留'
