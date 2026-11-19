@@ -491,7 +491,14 @@ pub struct WritePlan {
 /// 校验并生成写入计划：绝对路径、`..` 穿越与受保护目录一律拒绝。
 pub fn build_plan(table_path: &Path, data: &[u8]) -> Result<WritePlan, CameraError> {
     use std::path::Component;
-    if table_path.is_absolute() {
+    // Windows 上 `/Windows/x.bin` 既不算 `is_absolute()`（缺盘符前缀）也不含 `..`，
+    // 但 `PathBuf::push` 会把它当带根路径替换挂载点之后的部分，直接跳出卡根，
+    // 所以必须按组件拒绝 Prefix（盘符/UNC/`\\?\`）与 RootDir。
+    if table_path.is_absolute()
+        || table_path
+            .components()
+            .any(|c| matches!(c, Component::Prefix(_) | Component::RootDir))
+    {
         return Err(CameraError::BadInput("目标路径必须是相对卡根的相对路径".into()));
     }
     if table_path.components().any(|c| matches!(c, Component::ParentDir)) {
@@ -686,6 +693,29 @@ mod tests {
         assert!(build_plan(Path::new("/etc/x.bin"), &[]).is_err());
         assert!(build_plan(Path::new("../DCIM/x.bin"), &[]).is_err());
         assert!(build_plan(Path::new("DCIM/x.bin"), &[]).is_err());
+        assert!(build_plan(Path::new("filters/x.bin"), &[]).is_ok());
+    }
+
+    /// Windows 的路径语义与 Unix 不同：`/Windows/x.bin` 不是绝对路径，却带 RootDir，
+    /// `push` 时会丢弃挂载点根之后的部分。这里把「跳出卡根」的实际后果钉成断言，
+    /// 以免守卫被改回只看 `is_absolute()`。
+    #[cfg(windows)]
+    #[test]
+    fn build_plan_rejects_windows_rooted_and_prefixed_paths() {
+        for raw in [
+            "/Windows/x.bin",
+            "\\Windows\\x.bin",
+            "C:\\Windows\\x.bin",
+            "\\\\?\\C:\\Windows\\x.bin",
+            "\\\\server\\share\\x.bin",
+        ] {
+            assert!(build_plan(Path::new(raw), &[]).is_err(), "{raw} 必须拒绝");
+        }
+        assert_eq!(
+            Path::new("C:\\card").join("/Windows/x.bin"),
+            Path::new("C:\\Windows\\x.bin"),
+            "带根相对路径会把挂载点整段换掉"
+        );
         assert!(build_plan(Path::new("filters/x.bin"), &[]).is_ok());
     }
 
