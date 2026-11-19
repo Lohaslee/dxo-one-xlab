@@ -81,13 +81,20 @@ echo "[3/8] 个人路径抹除（签名前等长替换）"
 python3 "$SCRIPT_DIR/scrub-macos-binary.py"
 
 echo "[4/8] Tauri bundle：组装 .app 并签名"
-# 有 Developer ID 身份时用 -c 覆盖 conf 里的 ad-hoc 身份；覆盖只影响打包，不改源码
-SIGN_CONFIG=""
+# 签名身份一律显式写进 --config，不让环境变量决定走哪条路：CI 里 secrets 未配置时
+# APPLE_SIGNING_IDENTITY 仍会被导出成**空字符串**，tauri 拿空身份去 codesign，
+# 日志表现为 `Signing with identity ""` → codesign: no identity found，
+# conf 里的 ad-hoc "-" 被顶掉，打包直接失败。
 if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
-  SIGN_CONFIG=$(python3 -c 'import json,os;print(json.dumps({"bundle":{"macOS":{"signingIdentity":os.environ["APPLE_SIGNING_IDENTITY"],"hardenedRuntime":True}}}))')
   echo "  使用 Developer ID 签名 + hardenedRuntime"
+  SIGN_CONFIG=$(APPLE_IDENTITY="$APPLE_SIGNING_IDENTITY" APPLE_HARDENED=true \
+    python3 -c 'import json,os;print(json.dumps({"bundle":{"macOS":{"signingIdentity":os.environ["APPLE_IDENTITY"],"hardenedRuntime":os.environ["APPLE_HARDENED"]=="true"}}}))')
+else
+  echo "  无 Developer ID：显式 ad-hoc 签名（identity=-），本包属于未公证测试包"
+  SIGN_CONFIG=$(APPLE_IDENTITY="-" APPLE_HARDENED=false \
+    python3 -c 'import json,os;print(json.dumps({"bundle":{"macOS":{"signingIdentity":os.environ["APPLE_IDENTITY"],"hardenedRuntime":os.environ["APPLE_HARDENED"]=="true"}}}))')
 fi
-( cd "$APP_DIR" && npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" ${SIGN_CONFIG:+--config "$SIGN_CONFIG"} )
+( cd "$APP_DIR" && npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" --config "$SIGN_CONFIG" )
 
 BUNDLE_DIR="$PROJECT_DIR/target/$TRIPLE/release/bundle"
 SRC_APP="$BUNDLE_DIR/macos/DXO-ONE-XLAB.app"
@@ -108,40 +115,72 @@ assert_no_personal_path "$SRC_APP/Contents/MacOS/$BIN_NAME" ".app 二进制"
 echo "[6/8] 生成 DMG（hdiutil，含 Applications 快捷方式）"
 # 不用 Tauri 自带 create-dmg：它依赖 Finder AppleScript 排布窗口，非交互环境会
 # 卡在自动化授权直至超时；纯 hdiutil 卷同样是「拖入应用程序」安装。
+# 新包先写到临时目录，全部校验（含公证）通过后才替换 dist/release 里的旧包。
+# 顺序不可颠倒：曾用 `hdiutil create -ov -o "$OUT_DIR/…"`，打包中途失败时上一份
+# 已验收的 DMG 已被截断删除，交付物直接归零。
 mkdir -p "$OUT_DIR"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp/}dxo-dmg-work.XXXXXX")"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp/}dxo-dmg-stage.XXXXXX")"
-trap 'rm -rf "$STAGE"' EXIT
+DMG="$WORK_DIR/$DMG_NAME"
+VOL_NAME="DXO-ONE-XLAB ${VERSION}"
+trap 'rm -rf "$WORK_DIR" "$STAGE"' EXIT
+# create 使用的卷名固定；若同名卷仍在挂载（上一次失败的 create 常留下残挂载），
+# 会报「资源忙」。只卸载能证明属于本产物（image-path 即同名 DMG）的镜像挂载，
+# 其余同名卷不动，交由用户处理。
+python3 - "$DMG_NAME" > "$WORK_DIR/stale.txt" <<'PY'
+import plistlib, subprocess, sys, os
+want = sys.argv[1]
+info = plistlib.loads(subprocess.run(["hdiutil", "info", "-plist"],
+                                     capture_output=True, check=True).stdout)
+for ent in info.get("system-entries", []):
+    path = ent.get("image-path") or ""
+    if os.path.basename(path) == want:
+        for req in ent.get("requests", []):
+            for blk in req.get("blocks", []):
+                if blk.get("BSDName"):
+                    print("/dev/" + blk["BSDName"])
+PY
+while read -r dev; do
+  [ -n "$dev" ] || continue
+  echo "  卸载本脚本上次遗留的镜像挂载 $dev"
+  hdiutil detach "$dev" -force >/dev/null 2>&1 || true
+done < "$WORK_DIR/stale.txt"
+if mount | grep -qF "/Volumes/$VOL_NAME"; then
+  echo "❌ 仍有名为「$VOL_NAME」的卷处于挂载状态，且不属于本构建产物；请先在 Finder 推出后重试"; exit 1
+fi
 cp -R "$SRC_APP" "$STAGE/DXO-ONE-XLAB.app"
 ln -s /Applications "$STAGE/Applications"
 codesign --verify --deep --strict "$STAGE/DXO-ONE-XLAB.app" || { echo "复制后签名失效"; exit 1; }
-hdiutil create -verbose -ov -volname "DXO-ONE-XLAB ${VERSION}" -fs HFS+ \
-  -srcfolder "$STAGE" -format UDZO -o "$OUT_DIR/$DMG_NAME"
+hdiutil create -verbose -volname "$VOL_NAME" -fs HFS+ \
+  -srcfolder "$STAGE" -format UDZO -o "$DMG"
 
 echo "[7/8] 校验 DMG：挂载后复检装箱内容"
 MOUNT="$(mktemp -d "${TMPDIR:-/tmp/}dxo-dmg.XXXXXX")"
-trap 'hdiutil detach "$MOUNT" -force >/dev/null 2>&1 || true; rm -rf "$MOUNT" "$STAGE"' EXIT
-hdiutil attach -nobrowse -readonly -mountpoint "$MOUNT" "$OUT_DIR/$DMG_NAME" >/dev/null
+trap 'hdiutil detach "$MOUNT" -force >/dev/null 2>&1 || true; rm -rf "$MOUNT" "$WORK_DIR" "$STAGE"' EXIT
+hdiutil attach -nobrowse -readonly -mountpoint "$MOUNT" "$DMG" >/dev/null
 ls -la "$MOUNT" | sed 's/^/  /'
 codesign --verify --deep --strict --verbose=2 "$MOUNT/DXO-ONE-XLAB.app"
 assert_no_personal_path "$MOUNT/DXO-ONE-XLAB.app/Contents/MacOS/$BIN_NAME" "DMG 内二进制"
 hdiutil detach "$MOUNT" -force >/dev/null
 
-# 公证必须在卸载之后、写 SHA 之前：staple 会改写 DMG 本体，先写 SHA 就白写了
+# 公证必须在卸载之后、归位与写 SHA 之前：staple 会改写 DMG 本体，先写 SHA 就白写了
 if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
   echo "  公证：notarytool submit + stapler staple"
   : "${APPLE_ID:?缺少 APPLE_ID，无法公证（不允许交付「已签名未公证」的包）}"
   : "${APPLE_PASSWORD:?缺少 APPLE_PASSWORD（App 专用密码），无法公证}"
   : "${APPLE_TEAM_ID:?缺少 APPLE_TEAM_ID，无法公证}"
-  xcrun notarytool submit "$OUT_DIR/$DMG_NAME" --apple-id "$APPLE_ID" \
+  xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" \
     --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
-  xcrun stapler staple "$OUT_DIR/$DMG_NAME"
-  xcrun stapler validate "$OUT_DIR/$DMG_NAME"
-  spctl --assess --type open --context path:="$OUT_DIR/$DMG_NAME" -vv 2>&1 | sed 's/^/  Gatekeeper: /'
+  xcrun stapler staple "$DMG"
+  xcrun stapler validate "$DMG"
+  spctl --assess --type open --context path:="$DMG" -vv 2>&1 | sed 's/^/  Gatekeeper: /'
 else
   echo "  未公证（本机无 Developer ID 凭据）：本包只能作为未签名测试包审查"
 fi
 
-echo "[8/8] 写 SHA 并清理构建侧第二份 App 与 DMG 工作区（本机不保留可启动的第二份 App）"
+echo "[8/8] 归位 DMG、写 SHA 并清理构建侧第二份 App 与 DMG 工作区（本机不保留可启动的第二份 App）"
+# 走到这里新包已通过第 [7/8] 步全部校验，才替换旧包
+mv -f "$DMG" "$OUT_DIR/$DMG_NAME"
 ( cd "$OUT_DIR" && rm -f SHA256SUMS.txt && shasum -a 256 "$DMG_NAME" >> SHA256SUMS.txt )
 rm -rf "$BUNDLE_DIR/macos" "$BUNDLE_DIR/dmg"
 ( cd "$OUT_DIR" && shasum -a 256 -c SHA256SUMS.txt )

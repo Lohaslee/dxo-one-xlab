@@ -108,7 +108,8 @@ pub fn case_insensitive_paths() -> bool {
 pub fn card_identity(root: &Path) -> io::Result<String> {
     #[cfg(windows)]
     {
-        let guid = win::volume_guid_path(root).ok_or_else(|| io::Error::other("无法读取卷 GUID，不能确认卡身份"))?;
+        let guid = win::containing_volume_guid(root)
+            .ok_or_else(|| io::Error::other("无法读取卷 GUID，不能确认卡身份"))?;
         let (serial, index) = win::volume_and_file_ids(root)?;
         Ok(format!("volume={guid} serial={serial:08X} index={index}"))
     }
@@ -370,6 +371,17 @@ mod win {
             GetVolumeNameForVolumeMountPointW(wide(&as_root(root)).as_ptr(), buf.as_mut_ptr(), buf.len() as u32)
         };
         (ok != 0).then(|| from_wide(&buf))
+    }
+
+    /// 路径所属卷的 GUID：先把它当挂载点直取，取不到再解析所属卷根后取。
+    /// 只用于身份绑定；「所选路径必须是已挂载卷根」由 `assess_camera_card` 的
+    /// `mount_matches` 判定，这里放宽不会让子目录通过写卡预检。
+    pub fn containing_volume_guid(path: &Path) -> Option<String> {
+        if let Some(guid) = volume_guid_path(path) {
+            return Some(guid);
+        }
+        let root = volume_root_of(path).ok()?;
+        volume_guid_path(Path::new(&root))
     }
 
     /// 卷序列号 + 根目录 file index，用于跨插拔的身份指纹。
