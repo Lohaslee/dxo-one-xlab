@@ -40,7 +40,16 @@ echo "  $(rustc --version) / $(cargo --version)"
 
 echo "[2/5] 构建 + NSIS 打包（回归测试由 CI / dist/verify-source.sh 单独执行）"
 export RUSTFLAGS="--remap-path-prefix=$USERPROFILE=/user${RUSTFLAGS:+ $RUSTFLAGS}"
-( cd "$APP_DIR" && npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" build --bundles nsis )
+# 有代码签名证书时用 --config 覆盖（值只从环境读取，不落文件）；无凭据保持未签名
+SIGN_CONFIG=""
+if [ -n "${TAURI_WINDOWS_CERT_THUMBPRINT:-}" ]; then
+  case "$TAURI_WINDOWS_CERT_THUMBPRINT" in
+    *[!0-9A-Fa-f]*) echo "TAURI_WINDOWS_CERT_THUMBPRINT 应为十六进制指纹，拒接注入"; exit 1 ;;
+  esac
+  SIGN_CONFIG="{\"bundle\":{\"windows\":{\"certificateThumbprint\":\"$TAURI_WINDOWS_CERT_THUMBPRINT\",\"digestAlgorithm\":\"sha256\",\"timestampUrl\":\"http://timestamp.digicert.com\"}}}"
+  echo "  已配置证书指纹 → 走 Tauri 签名 + 时间戳"
+fi
+( cd "$APP_DIR" && npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" build --bundles nsis ${SIGN_CONFIG:+--config "$SIGN_CONFIG"} )
 
 SRC_DIR="$PROJECT_DIR/target/release/bundle/nsis"
 SRC_EXE="$(ls -1 "$SRC_DIR"/*-setup.exe | head -1)"
@@ -50,6 +59,11 @@ echo "[3/5] 校验安装包元信息与签名状态"
 WIN_EXE="$(cygpath -w "$SRC_EXE")"
 powershell.exe -NoProfile -Command \
   "Get-Item -LiteralPath '$WIN_EXE' | Select-Object -ExpandProperty VersionInfo | Format-List FileVersion,ProductName,Company; Get-AuthenticodeSignature -LiteralPath '$WIN_EXE' | Format-List Status,StatusMessage" | sed 's/^/  /' || true
+if [ -n "${TAURI_WINDOWS_CERT_THUMBPRINT:-}" ]; then
+  STATUS="$(powershell.exe -NoProfile -Command "Get-AuthenticodeSignature -LiteralPath '$WIN_EXE' | Select-Object -ExpandProperty Status" | tr -d '\r')"
+  [ "$STATUS" = "Valid" ] || { echo "已提供签名凭据但 Authenticode 状态为「$STATUS」，不能作为正式发行包"; exit 1; }
+  echo "  Authenticode: Valid ✅"
+fi
 
 echo "[4/5] 归位产物 $OUT_DIR/$EXE_NAME"
 mkdir -p "$OUT_DIR"

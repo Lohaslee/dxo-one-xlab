@@ -13,8 +13,11 @@
 #
 # 凭据（只列变量名，本脚本不写入任何值）：
 #   APPLE_SIGNING_IDENTITY / APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID
-# 未提供时按 tauri.macos.conf.json 的 signingIdentity "-" 做 ad-hoc 签名，
-# 产物属于「未公证测试包」，不得对外宣称为 Developer ID 正式发行版。
+# 未提供 APPLE_SIGNING_IDENTITY 时按 tauri.macos.conf.json 的 signingIdentity "-"
+# 做 ad-hoc 签名，产物属于「未公证测试包」，不得对外宣称为 Developer ID 正式发行版。
+# 提供 APPLE_SIGNING_IDENTITY 则：钥匙串必须真有该身份 → hardenedRuntime 签名 →
+# notarytool 提交 DMG 并 staple；缺 APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID 直接失败，
+# 不允许「签了名但没公证」被误当成正式包。
 # ============================================================================
 set -euo pipefail
 
@@ -30,6 +33,15 @@ TRIPLE="$ARCH-apple-darwin"
 
 VERSION="$(grep -m1 '^version' "$APP_DIR/Cargo.toml" | sed -E 's/.*"(.*)".*/\1/')"
 DMG_NAME="DXO-ONE-XLAB-${VERSION}-macOS-${ARCH}.dmg"
+
+# 凭据前置校验（fail fast，避免编译 3 分钟后才发现签不了）
+if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+  security find-identity -v -p codesigning | grep -qF -- "$APPLE_SIGNING_IDENTITY" || {
+    echo "钥匙串中没有 APPLE_SIGNING_IDENTITY 指定的 Developer ID 身份"; exit 1; }
+  for v in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+    [ -n "${!v:-}" ] || { echo "已给 APPLE_SIGNING_IDENTITY 但缺 $v：不允许交付「已签名未公证」的包"; exit 1; }
+  done
+fi
 
 assert_no_personal_path() { # <file> <标签>
   local hits
@@ -69,7 +81,13 @@ echo "[3/8] 个人路径抹除（签名前等长替换）"
 python3 "$SCRIPT_DIR/scrub-macos-binary.py"
 
 echo "[4/8] Tauri bundle：组装 .app 并签名"
-( cd "$APP_DIR" && npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" )
+# 有 Developer ID 身份时用 -c 覆盖 conf 里的 ad-hoc 身份；覆盖只影响打包，不改源码
+SIGN_CONFIG=""
+if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+  SIGN_CONFIG=$(python3 -c 'import json,os;print(json.dumps({"bundle":{"macOS":{"signingIdentity":os.environ["APPLE_SIGNING_IDENTITY"],"hardenedRuntime":True}}}))')
+  echo "  使用 Developer ID 签名 + hardenedRuntime"
+fi
+( cd "$APP_DIR" && npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" ${SIGN_CONFIG:+--config "$SIGN_CONFIG"} )
 
 BUNDLE_DIR="$PROJECT_DIR/target/$TRIPLE/release/bundle"
 SRC_APP="$BUNDLE_DIR/macos/DXO-ONE-XLAB.app"
@@ -106,6 +124,22 @@ hdiutil attach -nobrowse -readonly -mountpoint "$MOUNT" "$OUT_DIR/$DMG_NAME" >/d
 ls -la "$MOUNT" | sed 's/^/  /'
 codesign --verify --deep --strict --verbose=2 "$MOUNT/DXO-ONE-XLAB.app"
 assert_no_personal_path "$MOUNT/DXO-ONE-XLAB.app/Contents/MacOS/$BIN_NAME" "DMG 内二进制"
+hdiutil detach "$MOUNT" -force >/dev/null
+
+# 公证必须在卸载之后、写 SHA 之前：staple 会改写 DMG 本体，先写 SHA 就白写了
+if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+  echo "  公证：notarytool submit + stapler staple"
+  : "${APPLE_ID:?缺少 APPLE_ID，无法公证（不允许交付「已签名未公证」的包）}"
+  : "${APPLE_PASSWORD:?缺少 APPLE_PASSWORD（App 专用密码），无法公证}"
+  : "${APPLE_TEAM_ID:?缺少 APPLE_TEAM_ID，无法公证}"
+  xcrun notarytool submit "$OUT_DIR/$DMG_NAME" --apple-id "$APPLE_ID" \
+    --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+  xcrun stapler staple "$OUT_DIR/$DMG_NAME"
+  xcrun stapler validate "$OUT_DIR/$DMG_NAME"
+  spctl --assess --type open --context path:="$OUT_DIR/$DMG_NAME" -vv 2>&1 | sed 's/^/  Gatekeeper: /'
+else
+  echo "  未公证（本机无 Developer ID 凭据）：本包只能作为未签名测试包审查"
+fi
 
 echo "[8/8] 写 SHA 并清理构建侧第二份 App 与 DMG 工作区（本机不保留可启动的第二份 App）"
 ( cd "$OUT_DIR" && rm -f SHA256SUMS.txt && shasum -a 256 "$DMG_NAME" >> SHA256SUMS.txt )

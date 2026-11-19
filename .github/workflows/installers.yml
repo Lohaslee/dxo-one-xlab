@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   macos-arm64:
-    runs-on: macos-14
+    # runs-on: macos-14 时作业未分配到 runner，1 秒内即 cancelled（无任何步骤）；改用 latest
+    runs-on: macos-latest
     env:
       # 有 Developer ID 时在仓库 Secrets 中配置，脚本会自动改用正式签名并尝试公证
       APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
