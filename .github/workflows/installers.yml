@@ -5,7 +5,7 @@ name: installers
 # 不发布到任何公开渠道。签名/公证凭据缺失时产物保持未签名，脚本会在日志中如实标注。
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   contents: read
