@@ -1,31 +1,88 @@
-# dxo-one-xlab
+# DXO-ONE-XLAB
 
 <p align="center">
-  <img src="assets/xlab-boot.gif" alt="DXO ONE XLAB boot sequence" width="680">
+  <img src="assets/xlab-boot.gif" alt="DXO-ONE-XLAB 启动动画" width="680">
 </p>
 
-<!-- 启动动画复刻 docs/UI-样张-嘻哈.html 的 splash 序列（单片镜头盖竖直下滑 → 光圈闪 → 点阵逐列扫字）；
-     色板取自 UI-设计规范 v1.2：#060709 / #F0EFE7 / #93928C / #4EADB9，机身 6 级灰阶由 --fg 与 --bg 在 OKLCH 空间混合 -->
+**给 DxO ONE 多一些拍摄玩法。** 在相机里切换滤镜，在电脑上导入自己的风格、预览效果并管理卡内清单。
 
-**DxO ONE 机内滤镜补丁** —— 在相机菜单里直接切换十一档胶片风格，不用后期；开机自动恢复上次关机前所用的滤镜。
+这里持续维护相机端补丁、桌面 App 和滤镜工具，也会继续探索更多实用功能。项目仍在迭代，支持范围与验证结果以各入口说明为准。
 
-> `xlab` 是围绕 DxO ONE 做实验的地方：补丁、客户端、工具链与逆向记录都在这里迭代。
-> 实验性质意味着结论会修正、版本会撤换，请以当前 README 与校验清单为准。
+## 先找到你的入口
 
-当前发布：**Build 72**（2026-11-17，滤镜记忆） · 适用固件 **3.2.0 (`ecef5ef809`)** · iOS / Lightning 机型
+| 你想做什么 | 从这里开始 |
+| --- | --- |
+| 给 L口 / L口改C口相机安装滤镜补丁 | [Lightning 完整包与安装说明](Lightning-L口/README.md) |
+| 给原生 C口相机安装触屏补丁 | [USB-C 触屏包与安装说明](USB-C-C口/README.md)，目前没有滤镜功能 |
+| 用电脑导入、预览和管理滤镜 | [桌面 App](#桌面-app) |
+| 用 Python 转换或替换自己的滤镜 | [自定义滤镜工具与流程](自定义置入滤镜流程/README.md) |
+| 继续开发 Mac / Windows 安装包 | [AI 执行交接文档](AI执行交接-Mac与Windows安装包.md) |
 
-> Build 61（自定义 8×16 大字体）已撤回：实机字号过大、辨识度差。
-> Build 62–65 是随后的字体方案迭代，只做离线验证、**从未写卡**，未对外发布。
-> **Build 66 是这条字体链的收敛结果**：已写卡部署、13 件写入校验通过，
-> 滤镜菜单名已在设备上确认正常显示。
+## 支持哪些相机
 
-> 本仓库包含**相机端补丁、运行时依赖与 macOS 桌面 App 0.1.0 源码**。
-> 桌面源码构建入口见下节；Windows 适配和正式 DMG / EXE 安装包仍待完成。
+**以机身固件判断，不能只看接口外形。** L口换装 C口后，如果仍是 Lightning 固件，就走 L口流程。
 
-## 从源码构建桌面 App
+| 机型 / 固件 | 相机端可用内容 | 桌面 App 补丁入口 |
+| --- | --- | --- |
+| L口，或 L口改C口；`3.2.0 / ecef5ef809` | **Build 72 滤镜完整包**，含触屏运行时依赖 | 可进入 Lightning 完整版安装流程 |
+| 原生 C口；`3.2.0 / 267b1a9e02` | 林达 v26 **触屏补丁**，无滤镜功能 | 显示“开发测试中，敬请期待” |
+| 其他或未确认固件 | 尚未适配 | 先确认固件，不安装 |
 
-当前桌面入口是 **Tauri 2 的 `dxo-app`**，不是旧 Iced GUI。已在 macOS Apple Silicon 验证；
-Windows 目前存在卷识别、刷盘和 Unix API 依赖，不能直接当作支持 Windows 的发行版。
+两套补丁互不兼容，不能混装。仓库附带的原生 C口触屏包与 App 中尚未开放的 C口补丁流程是两个独立入口。
+
+## 相机滤镜 · Build 72
+
+在相机菜单第六页，上下切换 **11 个档位（含 NONE）**，左右翻页；成功切档后记住当前选择，下次开机自动恢复。
+
+| 菜单名 | 滤镜文件 | 风格说明 |
+| --- | --- | --- |
+| NONE | `lut_orig.bin` | 透传档，保留源影调 |
+| VELVIA | `lut_vel.bin` | VELVIA 风格 |
+| G200 | `lut_gold.bin` | GOLD200 风格，预装默认档 |
+| PORTRA | `lut_port.bin` | PORTRA 风格 |
+| HP5 | `lut_hp5.bin` | 黑白风格 |
+| R-POSI | `lut_posi.bin` | Ricoh Positive Film 风格 |
+| R-HIBW | `lut_hibw.bin` | Ricoh 高反差黑白风格 |
+| FUYUNO | `lut_fuyu.bin` | 冬野 |
+| KYUSHU | `lut_kyus.bin` | 九秋 |
+| SATOBI | `lut_sato.bin` | SATOBI 风格 |
+| INSTA | `lut_insta.bin` | Dehancer Instax+2383 风格 |
+
+发布包使用原厂基础影调与滤镜复合的配方。风格名称用于描述来源，不代表经过仪器校准或与胶片实物完全一致；来源与权利说明见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+
+Build 72 于 2026-11-17 记录相机实机用例 0–7 通过，包括十一档切换、滤镜记忆和拍摄回归。已知预览切档偏慢；完整历史、撤回版本及技术细节见 [版本与维护记录](Lightning-L口/版本与维护记录.md)。
+
+### 安装与升级
+
+1. **确认上表的机型与固件**，阅读 [运行时依赖说明](DEPENDENCIES.md)，把照片和现有补丁备份到电脑。
+2. 校验下载的 Lightning 完整包：
+
+   ```bash
+   cd Lightning-L口
+   shasum -a 256 -c SHA256SUMS.txt
+   ```
+
+   19 件应全部通过；Windows 可用 SHA-256 校验工具核对同一清单。
+3. 按 [Lightning 安装说明](Lightning-L口/README.md) 将完整包内容复制到卡根目录，与 `DCIM/` 同级。**卡上已有 `touch_prefs.bin` 时保留原件**；`dxot/` 保持整目录，`PH_DIAG/` 必须存在。
+4. 逐文件回读校验；保留的个人 `touch_prefs.bin` 不要求匹配仓库默认文件。正常弹出卡，装回相机开机，**等约 3 秒**再触屏。
+
+从旧版本升级也使用完整包，不只替换 `ph_menu.bin`。`ph_last.bin` 是相机自动创建的滤镜记忆文件，无需手工部署；缺失或损坏时回退到 G200。
+
+已有桌面 App 的用户，可在“更新补丁”中选择“L口 / L口改C口”，核对目标卡与安装计划后确认安装。App 安装流程的真实硬件验收仍待完成，见下方验证范围。
+
+### 暂时停用
+
+关机取卡，将卡根的 `autoexec.ash` 改名为 `autoexec.ash.disabled`，即可停止开机加载；改回原名恢复。补丁在开机时载入运行内存，不刷写固件。**保留 `DCIM/` 与 `touch_prefs.bin`**；完整清理方法见对应补丁包说明。
+
+## 桌面 App
+
+当前版本 **0.1.0**，使用 Tauri 2 + Rust。提供滤镜导入、本地库、图片对比预览、卡内清单与相机名称设置，以及 Lightning 完整补丁安装流程。
+
+- 导入 `.cube`、`.3dl`、`.csp` 和 Hald 图像，调整参数后保存到本地库。
+- 预览与写卡共用 CC 表；加入卡清单后设置“相机名称”，确认写卡后才在相机生效。
+- 写卡与补丁安装包含只读预检、目标确认、本地备份和回读校验。
+
+**目前提供源码构建方式。** 已验证 macOS Apple Silicon；正式签名、公证的 Mac 安装包及 Windows 安装程序尚未发布，Windows 读卡和写入仍需适配。
 
 安装 Xcode Command Line Tools、Rust/rustup、Python 3 和 Node.js 22 后：
 
@@ -36,309 +93,33 @@ bash dist/verify-source.sh
 open dxo-app/AppBundle/DXO-ONE-XLAB.app
 ```
 
-脚本校验 19 件 Lightning 资源、运行 UI/Rust 测试，再生成可独立运行的 `.app`；
-首次构建需联网下载锁定依赖。仅重新构建可运行 `bash dist/build-app.sh`，无需安装 Tauri CLI 或 npm 依赖。
-本地 App 使用 ad-hoc 签名，尚未完成 Developer ID 签名/公证。
+首次构建需要联网获取工具链与依赖；生成的 App 使用本地 ad-hoc 签名。完整前置要求、数据目录与单独构建命令见 [桌面源码 README](Rust重构/dxo-lut-tool/README.md)。
 
-- [桌面源码与构建说明](Rust重构/dxo-lut-tool/README.md)
-- [源码复现验收记录](Rust重构/dxo-lut-tool/docs/SOURCE-REPRODUCIBILITY.md)
-- [后续 Mac / Windows 安装包 AI 执行交接](AI执行交接-Mac与Windows安装包.md)
+2026-11-19 的源码复现验收：19 项 UI 测试、132 项 Rust 测试通过，4 项忽略；19 件补丁资源校验、干净源码构建和脱离源码目录的独立启动通过。**这不包含 App 真卡安装、相机开机或最终实拍色彩一致性验收**，详见 [源码复现记录](Rust重构/dxo-lut-tool/docs/SOURCE-REPRODUCIBILITY.md)。
 
-源码、锁文件、UI/字体/图标、原厂参照表和测试夹具均已纳入仓库；保留完整目录层级，
-编译还会读取根目录 `Lightning-L口/` 和 `DEPENDENCIES.md`。
-用户数据库、照片、相机卡备份、已构建 App 与本地实验档案不随仓库发布。
-源码可阅读与个人非商业复现，许可边界见 [LICENSE](LICENSE)。
+## 使用自己的滤镜
 
----
+优先在桌面 App 中导入 → 调整并保存 → 加入卡清单 → 设置相机名称 → 预检并确认写卡。
 
-## ⚠️ 先读这里
+需要脚本方式或了解表格式时，使用 [自定义滤镜工具](自定义置入滤镜流程/README.md)：转换 `.cube`、打包五槽表、替换已有档位并重新登记指纹。**仅覆盖滤镜文件还不够，必须同步更新 `ph_menu.bin` 的登记**；新增或删除档位则需要管理工具重建菜单。
 
-| 项目 | 说明 |
-|---|---|
-| **授权** | 补丁程序与二进制 **All Rights Reserved**；允许个人在自己的设备上非商业使用，禁止再分发 / 商用 / 公开衍生版本。文档为 CC BY-NC 4.0。见 [LICENSE](LICENSE)。 |
-| **第三方依赖** | `Lightning-L口/dxot/` 与 `touch_prefs.bin`（5 个运行时依赖）**不是本仓库原创**，来自林达 (@PENTAX_FA43mm) 的 v26 触屏补丁与 Eli 的 iOS 移植版，未见明确许可证。**部署前必读 [DEPENDENCIES.md](DEPENDENCIES.md)**。 |
-| **不是完整固件** | 不含完整固件镜像、官方安装包或任何可刷写的原厂镜像；仅含一枚 17,536 B 的原厂 CC 参照表（`自定义置入滤镜流程/stock/Imx183_Cc_Still1.bin`，DxO 版权内容，经发布者决定随包分发，权利人可要求移除，见 [THIRD_PARTY.md](THIRD_PARTY.md)）。补丁只在开机时载入运行内存，不刷固件。 |
-| **适用机型** | **iOS / Lightning 固件 `3.2.0 (ecef5ef809)`** 用 [Lightning-L口/](Lightning-L口/README.md) 滤镜补丁整包；**USB-C 原生版（`267b1a9e02`）** 用 [USB-C-C口/](USB-C-C口/README.md)（林达 v26 触屏补丁，无滤镜功能）。**两个目录都是「整包复制到卡根即用」，两套互不兼容，禁止混装。** |
-| **验证状态** | Build 72 已写卡部署、**实机验收用例 0–7 全过**（2026-11-17，用户亲自验收）：进页不崩可遍历 11 档；记忆闭环开机恢复上次档；无记忆/坏文件回退预装 GOLD200；拍照并发且照片直出与所选滤镜客观一致；快速连切不黑屏；断电韧性不卡死；六页/半按/回预览回归与 71 一致。菜单包 `ph_menu.bin` 5884 B，magic `0x50473547`（G5GP）。字体绘制另有离线 unicorn 真实执行 `menu_draw_text` / `menu_text_at` 后 dump 64×48 帧缓冲的逐档核对。已知观察：预览切档偏慢（SD 同步读卡既有暴露面，非 72 引入）。 |
-| **风险** | 写卡可能导致照片丢失、卡损坏或保修失效。先备份、逐文件校验、正常弹出卷后再拔卡。 |
+## 文档与开发
 
-本项目与 DxO Labs 无任何关联，未获其授权或认可。
+| 文档 | 内容 |
+| --- | --- |
+| [Lightning 安装说明](Lightning-L口/README.md) | L口完整包、安装、卸载与保留项 |
+| [USB-C 安装说明](USB-C-C口/README.md) | 原生 C口 v26 触屏包 |
+| [版本与维护记录](Lightning-L口/版本与维护记录.md) | 历史 Build、撤回原因、相机端验收与诊断日志 |
+| [桌面源码 README](Rust重构/dxo-lut-tool/README.md) | 构建、测试、资源和数据目录 |
+| [安装包 AI 执行交接](AI执行交接-Mac与Windows安装包.md) | Mac DMG 与 Windows 适配的后续任务 |
+| [贡献说明](CONTRIBUTING.md) | 问题反馈与提交规则 |
 
----
+问题反馈请到 [GitHub Issues](https://github.com/Lohaslee/dxo-one-xlab/issues)，注明相机固件、补丁 Build、电脑系统与复现步骤；不要上传照片原片、存储卡备份或含个人信息的日志。
 
-## 这一版做了什么
+## 致谢与许可
 
-- 相机菜单新增第六页，**十档滤镜循环**（上下切滤镜、左右翻页）
-- **自制等宽像素字体**：Menlo Bold 14px 栅格化为 9×12 格、步进 9px，笔画经 5 邻域膨胀 1px→2px，滤镜名居中显示（Build 66）
-- 切换滤镜后预览立即刷新（Build 58）
-- 滤镜资产统一放 `DXO_FILTERS/`，只登记 `.bin`、不自动扫描 `.cube`（Build 57）
-- 保留原厂曝光与拨盘分派；横滑预览不改拍摄设置；半按直接预览；关机无残字
+感谢 **@林达** 的 v26 触屏固件与 **Eli** 的 iOS / Lightning 移植；相关文件作为第三方运行时依赖随包保留，来源与许可状态见 [DEPENDENCIES.md](DEPENDENCIES.md)。
 
-## 十档滤镜
+补丁与桌面源码允许个人非商业使用及本地构建，采用 **All Rights Reserved**，并非通用开源授权；文档采用 CC BY-NC 4.0。第三方字体、滤镜素材、触屏依赖及原厂参照表保留各自权利，详见 [LICENSE](LICENSE) 与 [THIRD_PARTY.md](THIRD_PARTY.md)。仓库不包含完整原厂固件镜像。
 
-| # | 菜单名 | 文件 | 说明 |
-|---:|---|---|---|
-| 0 | NONE | `lut_orig.bin` | 透传档，保留源影调 |
-| 1 | VELVIA | `lut_vel.bin` | |
-| 2 | G200 | `lut_gold.bin` | |
-| 3 | PORTRA | `lut_port.bin` | |
-| 4 | HP5 | `lut_hp5.bin` | 源素材为黑白风格 |
-| 5 | R-POSI | `lut_posi.bin` | Ricoh Positive Film |
-| 6 | R-HIBW | `lut_hibw.bin` | Ricoh Hi-Contrast B&W，源素材为黑白风格 |
-| 7 | FUYUNO | `lut_fuyu.bin` | 冬野 |
-| 8 | KYUSHU | `lut_kyus.bin` | 九秋 |
-| 9 | SATOBI | `lut_sato.bin` | |
-
-除 NONE 外，九档均按「源 LUT 原样直出 / 100% 强度 / 不叠加机内影调补偿」
-处理；源素材本身是黑白的由源 LUT 自己决定，补丁不额外去色。
-
-> 上述 CC 表的输入线性 / 输出 sRGB 匹配未做仪器校准，不宣称与原机或胶片
-> 实物一致。9 个第三方派生表的权利状况见 [THIRD_PARTY.md](THIRD_PARTY.md)。
-
-想换成自己的滤镜？见 [自定义置入滤镜流程/](自定义置入滤镜流程/README.md)：
-转换内核 + 测试 + 置入说明 + AI 提示词。
-
-## 换成自己的滤镜
-
-四步走，完整细节、验证边界与 AI 提示词都在
-[自定义置入滤镜流程/README.md](自定义置入滤镜流程/README.md)：
-
-| 步骤 | 做什么 | 工具 |
-|---|---|---|
-| ① 转换 | `.cube` → 机内 CC 表（17,536 B 整表 + 5 个槽载荷），带恒等自检。复合模式与成品十档同配方（`--tone pass`，参照表已随仓库 `stock/` 提供）；`--direct` 直通模式可选（纯滤镜直出，观感不同） | `自定义置入滤镜流程/cube2dxo.py`（或 macOS 拖拽 `转换滤镜.command`） |
-| ② 打包 | 5 个槽载荷按地址拼成 87,720 B 五槽包（与卡上 `lut_*.bin` 同构） | 同上 README 有字节级说明 |
-| ③ 替换 | **同名覆盖**卡上 `DXO_FILTERS/lut_<档>.bin`（菜单名不变） | 手动或交给 AI（README 内置提示词） |
-| ④ 重登记 | 重建 `ph_menu.bin` 指纹登记——**不做这步，被替换的档位会拒绝切换**；输出新 `ph_menu.bin` 替换卡根原件（先备份） | `自定义置入滤镜流程/重登记指纹.py` |
-
-> 菜单是"登记制"：`ph_menu.bin` 只认登记过的文件名，**不会自动扫描**新文件，
-> 且对每个档位校验内容指纹。所以替换内容 = 覆盖某个现有档位 **＋ 重登记指纹**
-> （③④缺一不可）。**新增/删除档位**用 `自定义置入滤镜流程/管理滤镜.py` 重建菜单
-> （菜单同步扩张/收缩，离线已验证、实机验收待您亲自做）；`重登记指纹.py` 本身
-> 只重登记、不增删档位。
-
-## 部署
-
-**前提**
-
-1. DxO ONE，iOS / Lightning 固件 `3.2.0 (ecef5ef809)`；
-2. 已完整备份卡上 `autoexec.ash`、`touch_prefs.bin`、`dxot/` 与 `DCIM/`；
-3. 已读完 [DEPENDENCIES.md](DEPENDENCIES.md) —— 特别是 `touch_prefs.bin` 绝不能盲目覆盖。
-
-> **正在用其他触屏补丁（如林达 USB-C v26）？先停一下。**
-> 两个版本的固件内存地址完全不同，**互相不兼容**。把本套补丁复制进卡会
-> 覆盖卡根的 `autoexec.ash`（两套都以它为开机入口）——你的触屏补丁会立刻
-> 失效，而本套在 USB-C 固件上又装不上，结果就是开机变回原厂行为。
-> USB-C 用户请用本仓库的 [USB-C-C口/](USB-C-C口/README.md)；误装后恢复只需：删掉本套 6 项
-> （`autoexec.ash`、`ph_probe.ash`、`ph_menu.bin`、`DXO_FILTERS/`、
-> `dxot/`、`PH_DIAG/`），再把 v26 的 `autoexec.ash` 复制回卡根（
-> `p*.bin` 与 `touch_prefs.bin` 未被本套触碰，无需重装）。
-
-**整包复制（Lightning / L口，Build 72）**
-
-```bash
-cd Lightning-L口 && shasum -a 256 -c SHA256SUMS.txt   # 19 件全 OK 再往下
-```
-
-把 `Lightning-L口/` 里的内容**全部**复制到卡根目录（和 `DCIM` 同级）：
-`autoexec.ash`、`ph_probe.ash`、`ph_menu.bin`、`touch_prefs.bin`、
-`dxot/`（4 件触屏运行时依赖）、`DXO_FILTERS/`（11 个 `.bin`，含第 11 档 INSTA）、
-`PH_DIAG/`（空目录，里面只有一个 `.gitkeep` 占位）。
-这是一个**整包**，无需再分别拼补丁与依赖；细节见 [Lightning-L口/README.md](Lightning-L口/README.md)。
-
-> `touch_prefs.bin` 卡上**已有就不要覆盖**（相机自己的参数记忆），按
-> [DEPENDENCIES.md](DEPENDENCIES.md) 的规则处理；`dxot/` **整目录**复制，不要平铺到根目录。
-
-> ⚠️ **`PH_DIAG/` 目录必须存在**。相机端的 ash 脚本没有 `mkdir` 命令，
-> 采集脚本要往 `PH_DIAG\` 里写诊断文件；目录不在时采集会静默失败
-> （菜单与滤镜仍正常工作，只是没有诊断数据）。
-> 若在相机里格式化过卡，需要重新把这个空目录拷进去。
-
-- 逐文件回读 SHA-256，与 `Lightning-L口/SHA256SUMS.txt` 比对；
-- 正常弹出卷后拔卡，装回相机开机，**等约 3 秒**再触屏。
-
-> **滤镜记忆（Build 72 新增）**：每次切档成功，相机会把上次档位写进卡根 `ph_last.bin`（8 字节）；
-> 下次开机自动恢复该档。该文件**由相机运行时自建**，部署时不需要、也不要手工预置或修改。
-> 想清除记忆回预装档（GOLD200），删除卡根 `ph_last.bin` 即可；文件缺失/损坏/越界时相机自动回退预装档，不影响使用。
-
-### 卡上的诊断与日志
-
-Build 66 起，所有诊断文件都收在 `PH_DIAG/` 里，卡根目录不再堆积：
-
-| 文件 | 说明 | 增长情况 |
-|---|---|---|
-| `PH_DIAG/ph_*.bin` | 诊断信标：`p/f/m/v` 四组按档位编号（页标记、帧缓冲、装表记录、视频槽），另有启动态、钩子字、环形缓冲、tick 等 | **固定文件名、每次开机覆盖**；`ph_probe.ash` 里共 66 条 `savebin`，实际落盘数取决于开机后 ash 跑到哪里（实测一轮 41 个文件、约 27 KB） |
-| `console_debug.txt` | 固件调试日志（卡根目录） | 脚本开机先 `rm` 再重开，理论上只留本次运行；实测单轮 26–70 KB |
-
-> `rm` 命令本身已实机验证可用；`del` / `delete` / `rename` 在该 shell 中**不存在**
-> （脚本遇到未知命令不会中断，会继续往下执行）。但"开机删旧日志 → 重开 → 只留本次"
-> 这条完整链路**尚未在崩溃重启场景下验证过**，别把它当成崩溃现场保险。
->
-> **要看崩溃现场时**：去掉 `autoexec.ash` 第一行的 `rm c:\console_debug.txt`，
-> 日志就会跨重启保留（代价是会持续累积，抓完再把这行加回去）。
-
-> 📌 **采集天然可能不完整**：`ph_probe.ash` 在档位之间用 `sleep 5` 拉开 14 次采样，
-> 整轮约 75 秒。开机后 ash 会话不一定活到那么久（触屏操作、进入拍摄流程都可能提前
-> 结束），所以"66 条 `savebin` 只落了一部分"是常态而非故障——实测一轮停在档位 08，
-> `p/f/m/v` 的 09–13 与尾声 5 项均未落盘。文件数量少时先看最早与最后的索引，
-> 才能判断是跑完但没覆盖到，还是中途被打断。
-
-
-> ⚠️ 不要覆盖或删除 `DCIM/`、`touch_prefs.bin`、`dxot/`；
-> 不要混用不同 Build 的 `ph_*` 信标；回退请恢复对应版本的整套文件。
-
-## 一键安装（交给 AI 客户端）
-
-不想手动敲命令，可以把下面这段提示词整段复制给 **WorkBuddy / Codex / Claude Code** 等
-能读写本地文件的 AI 客户端，让它替你做校验与复制。
-
-````text
-你是我的文件操作助手。请把 https://github.com/Lohaslee/dxo-one-xlab 这个仓库里的
-DxO ONE 机内滤镜补丁装到我的相机 SD 卡上。严格按步骤执行，不要跳步、不要自行改路径。
-
-【前置检查｜任一条不通过就停下问我】
-1. 确认卡已挂载（macOS 查 /Volumes/，Windows 查盘符），文件系统为 FAT32/exFAT，剩余空间 > 5 MB。
-2. 卡根目录应能看到 DCIM/；看不到说明选错了卷，立即停。
-3. 把仓库克隆或下载到本地临时目录，后续所有复制都从那里取。
-
-【安全红线｜全程不得违反】
-- 绝不删除或改写 DCIM/ 下任何文件。
-- 卡根若已有 touch_prefs.bin，保留原文件，绝不用仓库版本覆盖（那是相机自己的参数记忆）。
-- 不用 rm -rf、不对整卡或通配符做批量删除；每次只操作明确列出的路径。
-- 复制后必须逐文件回读 SHA-256 与仓库 SHA256SUMS.txt 比对，全部一致才继续。
-- 结束用系统正常弹出（macOS: diskutil eject；Windows: 安全删除硬件），不要强制卸载。
-
-【步骤】
-1. 在 Lightning-L口/ 下执行 shasum -a 256 -c SHA256SUMS.txt（Linux 用 sha256sum -c），
-   确认 19 件全部 OK 再往下。
-2. 备份卡根现有 autoexec.ash / ph_menu.bin / ph_probe.ash / dxot/ 到卡外备份目录（存在才备份）。
-3. 复制 Lightning-L口/dxot/ 整个目录到卡根，得到 <卡>/dxot/（m01.ash、m02.ash、a.bin、b.bin）。
-4. Lightning-L口/touch_prefs.bin：卡根没有才复制；已有则跳过并告诉我。
-5. 复制 Lightning-L口/autoexec.ash、ph_probe.ash、ph_menu.bin 到卡根，覆盖同名文件。
-6. 复制 Lightning-L口/DXO_FILTERS/ 整个目录到卡根（11 个 lut_*.bin，含 INSTA），覆盖同名文件。
-7. 在卡根创建空目录 PH_DIAG/（相机端 ash 没有 mkdir，必须由电脑建；已存在就跳过）。
-8. 逐文件回读卡上内容并算 SHA-256 与 Lightning-L口/SHA256SUMS.txt 比对：14 个补丁件
-   （3 个 ph_* + 11 个 lut_*.bin）加 4 个 dxot 件，共 18 件；若第 4 步复制了 touch_prefs.bin 则再多 1 件。
-9. 执行 sync，然后正常弹出卷。
-
-【汇报】
-逐条列出：每个文件的校验结果（通过／不一致）、PH_DIAG/ 是否已就位、被跳过的项（例如原有的
-touch_prefs.bin）、最终是否成功弹出。任何一步失败就停下说明原因，不要"先修一下再说"。
-````
-
-装好后装回相机开机，**等约 3 秒**再触屏：菜单里出现第六页、上下切档、左右翻页即为生效。
-
-## 恢复原版
-
-补丁**只在开机时由卡上的 `autoexec.ash` 载入运行内存，不刷写固件**。所以"恢复原版"
-不需要任何刷机动作——撤掉加载入口，相机就回到原厂行为，机身本身从未被改动。
-
-| 方案 | 做法 | 适用 |
-|---|---|---|
-| **A. 停用（推荐）** | 把卡根 `autoexec.ash` 改名为 `autoexec.ash.disabled` | 只想暂时退回原厂；文件全留着，改回名字即恢复 |
-| **B. 彻底清理** | 删除 `autoexec.ash`、`ph_menu.bin`、`ph_probe.ash`、`PH_DIAG/`、`DXO_FILTERS/`、`dxot/` | 准备把卡用在别处 |
-
-两种方案都**必须保留** `DCIM/` 与 `touch_prefs.bin`。后者是你的档位 / 曝光 / 白平衡 /
-MF 距离记忆，删掉会让设置回默认。
-
-对应提示词：
-
-````text
-你是我的文件操作助手。请把 DxO ONE 相机 SD 卡恢复成原厂状态，即开机不再加载任何补丁。
-背景：这些补丁只在开机时由卡上的 autoexec.ash 载入运行内存，不刷写固件；撤掉入口就等于
-回到原厂行为，机身没有被改动，所以不需要刷机。
-
-【先问我要哪一种，不要自己替我选】
-A. 停用（可逆）：把卡根 autoexec.ash 改名为 autoexec.ash.disabled，其余文件原样保留。
-B. 彻底清理：删除卡根 autoexec.ash、ph_menu.bin、ph_probe.ash、PH_DIAG/，
-   以及 DXO_FILTERS/ 和 dxot/ 两个目录。
-
-【安全红线】
-- 两种方案都不得动 DCIM/ 和 touch_prefs.bin。
-- 不用 rm -rf 整卡、不用通配符批量删；只删除上面明确列出的路径。
-- 删除前先把要删的内容复制到卡外备份目录，并告诉我备份位置。
-- 结束用系统正常弹出卷。
-
-【验收】
-列出卡根剩余的文件与目录；确认已没有 autoexec.ash（B 方案还应没有 DXO_FILTERS/、dxot/ 与 PH_DIAG/）；
-确认 DCIM/ 与 touch_prefs.bin 仍在。
-````
-
-## 版本与验证状态
-
-| Build | 主要变化 | 状态 |
-|---|---|---|
-| 57 | 滤镜资产目录化、十档循环 | 维护者实机确认通过 |
-| 58 | 切滤镜后预览立即刷新 | 已写卡部署；该项实机确认记录未随本仓库发布 |
-| 60 | 名称居中、小字精简（原厂小字符） | 长期回退基线；菜单包 4424 B，magic `0x5047353a`，多次实机使用 |
-| ~~61~~ | ~~自定义 8×16 大字体~~ | **已撤回**：实机字号过大、辨识度差 |
-| 62–65 | 字体方案离线迭代（8×14 → 索引修正 → 细体 → 等宽像素风） | **均未写卡**，仅构建与离线渲染验证，未对外发布 |
-| **66** | **自制等宽像素字体 + 笔画加粗 + 诊断目录化** | 菜单包 5268 B，magic `0x50473541`。**菜单名已实机确认显示正常** |
-| ~~67~~ | ~~idx5..9 换直通包（`--direct` 纯滤镜直出）并重建指纹登记~~ | **已撤回**：实机观感偏灰，判定复合版更好 |
-| ~~68~~ | ~~同机对比：R-POSI=复合 + POSIT=直通（临时占 SATOBI 坑位）~~ | **已撤回**：对比实验用，结论同上 |
-| **69** | **复合定稿**：数据与 Build 66 逐字节一致，仅换独立 magic | 历史发布（被 72 取代）；菜单包 `ph_menu.bin` 5268 B，magic `0x50473544`。已写卡部署、13 件写入校验通过，SATOBI 坑位已恢复 |
-| ~~70~~ | ~~新增第 11 档 INSTA（Dehancer Instax+2383，复合 pass），十一档循环~~ | **已撤回**：分发链 `.Ldc_insta` 不可达，idx10 误显 SATOBI（装表正确、显示错误）；菜单包 5328 B，magic `0x50473545`。被 71 取代 |
-| **71** | **修复 INSTA 分发**：分发链补 `cmp r6,#10; beq`（+8 B），idx10 正确显示 INSTA | 实机验收通过（2026-11-14）：十一档循环、idx10=INSTA、INSTA 指纹 `0x121a0a3b`。菜单包 5336 B，magic `0x50473546`；被 72 取代 |
-| **72** | **滤镜记忆**：在 71 十一档基础上，切档成功即存 `ph_last.bin`、开机自动恢复上次档；缺失/损坏/越界回退预装 GOLD200。修复固件 `fread/fwrite` 七参调用约定（fp 在栈 arg7），解决真机写 0 字节 | **当前发布版本**；菜单包 `ph_menu.bin` 5884 B，magic `0x50473547`（G5GP）。**实机验收用例 0–7 全过**（2026-11-17）；已提升到 `Lightning-L口/` 整包（14 件补丁含第 11 档 INSTA + 触屏运行时依赖） |
-
-直通 vs 复合的实机结论：离线模拟里直通更高对比，但实机观感直通偏灰、
-复合版（原厂基础影调 + 滤镜）胜出；`--direct` 模式保留在转换器中备用，不再用于出货。
-
-Build 69 与 Build 66 的机器码与 LUT 数据**零差异**（仅诊断 magic 1 字节不同），
-相对 60 有 **3 件不同**：`ph_menu.bin`（5268 B vs 4424 B，字体）、
-`autoexec.ash`（477 B vs 445 B，新增开机 `rm` 日志轮转）、
-`ph_probe.ash`（3509 B vs 2981 B，诊断文件改写入 `PH_DIAG\`）。
-10 个 LUT 包逐字节一致。
-
-**Build 72 相对 69/71 的增量**：`ph_menu.bin`（5884 B，记忆核心 + 七参文件 API 修复）、
-`ph_probe.ash`（3563 B，新增 `ph_save_stat.bin` 等记忆诊断采样）、新增第 11 档 `DXO_FILTERS/lut_insta.bin`；
-`autoexec.ash` 与其余 10 个 LUT 包不变。从 69/71 升级请**整组替换 `Lightning-L口/` 的 14 件补丁文件**（含新增 INSTA），
-不要只换 `ph_menu.bin`（旧 10 档清单缺 INSTA 载荷、旧 probe 无记忆诊断）。记忆文件 `ph_last.bin` 由相机自建，无需部署。
-
-从 60 / 61 升级请**三件一起换**（只换 `ph_menu.bin` 会有诊断文件写错位置、
-日志继续累积的问题），并额外创建 `PH_DIAG/` 目录。
-
-字体细节：23 个字符（`-025ABEFGHIKLNOPRSTUVWY`）覆盖全部滤镜名，u16 行偏移、24 B/字符、
-96 B ASCII 索引表；绘制路径为 `menu_text_at` 居中 → `menu_draw_text` 查索引 →
-写 OLED 帧缓冲 `0x095D5AA8`（1 B/像素，stride 64）。
-
-## 仓库文件
-
-| 路径 | 内容 |
-|---|---|
-| `Lightning-L口/` | **Lightning / L口 整包**（Build 72）：14 件补丁产物（含第 11 档 INSTA）+ `dxot/` 与 `touch_prefs.bin`（5 件第三方触屏依赖）+ `PH_DIAG/` 空目录占位 + `README.md` + `SHA256SUMS.txt`（19 件卡文件）。**整包复制到卡根即用** |
-| `USB-C-C口/` | **USB-C / C口 整包**：林达 v26 触屏补丁原包（37 件卡文件 + README + 校验清单，非本仓库原创，无滤镜功能）。**整包复制到卡根即用** |
-| `自定义置入滤镜流程/` | 自定义滤镜：`.cube` → 机内 CC 表转换内核（已验证）+ 测试 + 原厂参照表 `stock/` + Build 69 回归夹具 `testdata/` + 置入说明 + AI 提示词 |
-| `Rust重构/dxo-lut-tool/` | 当前 macOS Tauri App 源码、锁定依赖、构建脚本与合成测试夹具 |
-| `AI执行交接-Mac与Windows安装包.md` | 后续 Mac 正式安装包与 Windows 适配的执行交接 |
-| `DEPENDENCIES.md` | 依赖来源、署名、适用固件与部署规则 |
-| `THIRD_PARTY.md` | 第三方材料与商标声明 |
-| `CONTRIBUTING.md` | 反馈方式与提交红线 |
-
-## 风险与免责
-
-写入相机存储卡可能导致照片丢失、卡损坏、固件异常或保修失效。请自行备份、
-逐文件校验、正常弹出卷后再拔卡。作者不对任何直接或间接损失负责，
-完整条款见 [LICENSE](LICENSE)。
-
-## 路线
-
-- macOS 桌面滤镜客户端：0.1.0 源码已纳入仓库，可自行构建；正式签名安装包后续完善
-- Windows 客户端：需完成读卡和写入适配；移动端客户端尚未发布
-- 逆向分析文档与构建工具链：后续视情况整理公开
-
-## 开发说明
-
-人主导，多模型分工：
-
-| 角色 | 承担 |
-|---|---|
-| **开发环境** | **WorkBuddy** —— 逆向分析、补丁构建、离线仿真（unicorn 真实执行 `menu_draw_text` / `menu_text_at` 后 dump 帧缓冲）、写卡校验与本文档维护，都在这里完成 |
-| **架构师** | **GPT** —— 方案设计、内存布局与符号边界划定、结论复核与风险判读 |
-| **开发** | **DeepSeek**、**HY 模型** —— 代码实现、实验批次迭代、批量校验 |
-
-结论以可复现的证据为准：能离线验证的就不写成"应该没问题"，
-未实机确认的就明确标注未确认，撤回的版本留在版本表里不删除。
-
----
-
-_相机补丁 Build 72 · 桌面 App 0.1.0 源码复现说明见上文_
+写卡前请备份并确认目标，正常弹出后再拔卡。使用风险与完整免责条款见 LICENSE。本项目与 DxO Labs 无关联，未获其授权或认可。

@@ -32,6 +32,7 @@
 # + README + 校验清单。dxot/ 与 touch_prefs.bin 为第三方依赖，见 DEPENDENCIES.md。
 Lightning-L口/*
 !Lightning-L口/README.md
+!Lightning-L口/版本与维护记录.md
 !Lightning-L口/autoexec.ash
 !Lightning-L口/ph_probe.ash
 !Lightning-L口/ph_menu.bin

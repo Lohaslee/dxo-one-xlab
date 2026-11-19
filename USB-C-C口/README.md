@@ -9,10 +9,10 @@
 
 | 相机接口 | 用什么 |
 |---|---|
-| Lightning（iPhone 老接口） | [Lightning-L口/](../Lightning-L口/README.md) 滤镜补丁（Build 72，含触屏功能） |
-| USB-C | **本目录**的 v26 触屏补丁。滤镜补丁请勿使用 |
+| Lightning，含 L口改C口但仍使用 `ecef5ef809` 固件的机身 | [Lightning-L口/](../Lightning-L口/README.md) 滤镜补丁（Build 72，含触屏功能） |
+| 原生 USB-C，`267b1a9e02` 固件 | **本目录**的 v26 触屏补丁。滤镜补丁请勿使用 |
 
-不确定自己是哪个？看相机连接电脑/手机的线：老 Apple 口 = Lightning，Type-C 口 = USB-C。
+以机身固件判断，不能只看接口或连接线；换装 C口不会自动改变固件类型。不确定固件时先确认，再安装。
 
 ## 安装（全部复制到卡根）
 
