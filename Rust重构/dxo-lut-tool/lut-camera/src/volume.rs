@@ -302,7 +302,7 @@ mod win {
         let ok = unsafe {
             GetVolumePathNameW(wide(&path.to_string_lossy()).as_ptr(), buf.as_mut_ptr(), buf.len() as u32)
         };
-        if ok == 0 { return Err(io::Error::last_os_error()); }
+        if ok == 0 { return Err(win_err("GetVolumePathNameW")); }
         Ok(as_root(Path::new(&from_wide(&buf))).to_uppercase())
     }
 
@@ -384,23 +384,37 @@ mod win {
         volume_guid_path(Path::new(&root))
     }
 
-    /// 卷序列号 + 根目录 file index，用于跨插拔的身份指纹。
+    /// 卷序列号 + 目录 file index，用于跨插拔的身份指纹。
+    /// `GetVolumeInformationW` 的入参按文档应是卷根，直接把普通子目录当根传会拿到
+    /// ERROR_DIR_NOT_ROOT(144)（CI 的模拟卷就是这么失败的）；因此先解析所属卷根取序列号，
+    /// 再对目标目录本身取 file index。每个失败点都带上 API 名，避免下次只剩裸 errno。
     pub fn volume_and_file_ids(root: &Path) -> io::Result<(u32, u64)> {
-        let path = as_root(root);
+        let vol_root = volume_root_of(root)?;
         let mut serial = 0u32;
         let ok = unsafe {
-            GetVolumeInformationW(wide(&path).as_ptr(), ptr::null_mut(), 0, &mut serial,
+            GetVolumeInformationW(wide(&vol_root).as_ptr(), ptr::null_mut(), 0, &mut serial,
                                   ptr::null_mut(), ptr::null_mut(), ptr::null_mut(), 0)
         };
-        if ok == 0 { return Err(io::Error::last_os_error()); }
-        let h = open(&path, 0).map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+        if ok == 0 { return Err(win_err("GetVolumeInformationW")); }
+        let path = as_root(root);
+        let h = open(&path, 0).map_err(|e| win_err_named("CreateFileW(目录句柄)", e))?;
         // windows-sys 的结构体没有 Default，零初始化后由系统填充
         let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
         let got = unsafe { GetFileInformationByHandle(h, &mut info) };
         unsafe { CloseHandle(h) };
-        if got == 0 { return Err(io::Error::last_os_error()); }
+        if got == 0 { return Err(win_err("GetFileInformationByHandle")); }
         let index = ((info.nFileIndexHigh as u64) << 32) | info.nFileIndexLow as u64;
         Ok((serial, index))
+    }
+
+    /// 把 GetLastError 包成带 API 名的 io::Error（裸 os error 无法定位调用点）。
+    fn win_err(api: &str) -> io::Error {
+        win_err_named(api, unsafe { GetLastError() })
+    }
+
+    fn win_err_named(api: &str, code: u32) -> io::Error {
+        io::Error::other(format!("{api} 失败（GetLastError={code}）：{}",
+                                 io::Error::from_raw_os_error(code as i32)))
     }
 
     pub fn facts(root: &Path) -> Result<VolumeFacts, String> {

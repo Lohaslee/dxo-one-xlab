@@ -81,20 +81,21 @@ echo "[3/8] 个人路径抹除（签名前等长替换）"
 python3 "$SCRIPT_DIR/scrub-macos-binary.py"
 
 echo "[4/8] Tauri bundle：组装 .app 并签名"
-# 签名身份一律显式写进 --config，不让环境变量决定走哪条路：CI 里 secrets 未配置时
-# APPLE_SIGNING_IDENTITY 仍会被导出成**空字符串**，tauri 拿空身份去 codesign，
-# 日志表现为 `Signing with identity ""` → codesign: no identity found，
-# conf 里的 ad-hoc "-" 被顶掉，打包直接失败。
+# 签名身份一律显式写进 --config，并且在没有 Developer ID 时把 APPLE_SIGNING_IDENTITY
+# 从环境里删掉：CI 的 secrets 未配置时该变量仍是**已导出但为空**，而 tauri-cli 的环境变量
+# 优先级高于 conf/--config，会拿空身份去 codesign（`Signing with identity ""` →
+# codesign: no identity found），本机已用同一命令复现：留空量→失败，`env -u`→ad-hoc 成功。
 if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
   echo "  使用 Developer ID 签名 + hardenedRuntime"
   SIGN_CONFIG=$(APPLE_IDENTITY="$APPLE_SIGNING_IDENTITY" APPLE_HARDENED=true \
     python3 -c 'import json,os;print(json.dumps({"bundle":{"macOS":{"signingIdentity":os.environ["APPLE_IDENTITY"],"hardenedRuntime":os.environ["APPLE_HARDENED"]=="true"}}}))')
+  ( cd "$APP_DIR" && npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" --config "$SIGN_CONFIG" )
 else
   echo "  无 Developer ID：显式 ad-hoc 签名（identity=-），本包属于未公证测试包"
   SIGN_CONFIG=$(APPLE_IDENTITY="-" APPLE_HARDENED=false \
     python3 -c 'import json,os;print(json.dumps({"bundle":{"macOS":{"signingIdentity":os.environ["APPLE_IDENTITY"],"hardenedRuntime":os.environ["APPLE_HARDENED"]=="true"}}}))')
+  ( cd "$APP_DIR" && env -u APPLE_SIGNING_IDENTITY npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" --config "$SIGN_CONFIG" )
 fi
-( cd "$APP_DIR" && npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" --config "$SIGN_CONFIG" )
 
 BUNDLE_DIR="$PROJECT_DIR/target/$TRIPLE/release/bundle"
 SRC_APP="$BUNDLE_DIR/macos/DXO-ONE-XLAB.app"
