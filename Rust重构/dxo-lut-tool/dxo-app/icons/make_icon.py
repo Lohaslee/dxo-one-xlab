@@ -1,43 +1,62 @@
 #!/usr/bin/env python3
-"""V06: 由 favicon D-mark 设计生成 16–1024 iconset（PIL 按比例绘制，Impact 字体）。"""
-import os
+"""由 AppIcon.iconset（相机设计，16px 为手工调版）拼装 icon.ico。
 
-from PIL import Image, ImageDraw, ImageFont
+icon.ico 曾是 favicon D-mark 设计，与 AppIcon.icns/icon-1024.png 的相机设计不一致，
+导致 Windows 包图标 ≠ Mac 包图标（2026-11-19 用户报告）。相机设计以
+AppIcon.iconset/ + icon-1024.png 为唯一事实源，本脚本只做 ICO 装配，不重新绘制。
+"""
+import io
+import os
+import struct
+
+from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FONT = "/System/Library/Fonts/Supplemental/Impact.ttf"
-BG = (20, 20, 24)
-ACCENT = (78, 173, 185)
-ICO_SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+ICONSET = os.path.join(HERE, "AppIcon.iconset")
 
 
-def render(size):
-    k = size / 64.0
-    im = Image.new("RGB", (size, size), BG)
-    d = ImageDraw.Draw(im)
-    w = max(1, round(5 * k))
-    d.rectangle([6 * k - w / 2, 6 * k - w / 2, 58 * k + w / 2, 58 * k + w / 2], outline=ACCENT, width=w)
-    f = ImageFont.truetype(FONT, max(6, round(36 * k)))
-    d.text((32 * k, 45 * k), "D", font=f, fill=ACCENT, anchor="ms")
-    return im
+def png_bytes(im):
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    return buf.getvalue()
 
 
-def write_ico():
-    """Windows 图标（NSIS 安装向导与 exe 资源）：同一 D-mark 设计，内嵌多尺寸。"""
-    path = os.path.join(HERE, "icon.ico")
-    render(256).save(path, format="ICO", sizes=ICO_SIZES)
-    return path
+def build_entries():
+    i256 = Image.open(os.path.join(ICONSET, "icon_256x256.png")).convert("RGBA")
+    assert i256.size == (256, 256), i256.size
+    sources = [
+        (16, os.path.join(ICONSET, "icon_16x16.png"), None),
+        (24, None, Image.LANCZOS),
+        (32, os.path.join(ICONSET, "icon_32x32.png"), None),
+        (48, None, Image.LANCZOS),
+        (64, os.path.join(ICONSET, "icon_32x32@2x.png"), None),
+        (128, os.path.join(ICONSET, "icon_128x128.png"), None),
+        (256, os.path.join(ICONSET, "icon_256x256.png"), None),
+    ]
+    entries = []
+    for width, path, resample in sources:
+        if path is not None:
+            im = Image.open(path).convert("RGBA")
+        else:
+            im = i256.resize((width, width), resample)
+        assert im.size == (width, width), (path, im.size)
+        entries.append((width, png_bytes(im)))
+    return entries
 
 
 def main():
-    out = os.path.join(HERE, "AppIcon.iconset")
-    os.makedirs(out, exist_ok=True)
-    for base in (16, 32, 128, 256, 512):
-        render(base).save(os.path.join(out, f"icon_{base}x{base}.png"))
-        render(base * 2).save(os.path.join(out, f"icon_{base}x{base}@2x.png"))
-    render(1024).save(os.path.join(HERE, "icon-1024.png"))
-    write_ico()
-    print("iconset written:", sorted(os.listdir(out)))
+    blobs = build_entries()
+    out = struct.pack("<HHH", 0, 1, len(blobs))
+    offset = 6 + 16 * len(blobs)
+    for width, data in blobs:
+        out += struct.pack("<BBBBHHII", width % 256, width % 256, 0, 0, 1, 32,
+                           len(data), offset)
+        offset += len(data)
+    out += b"".join(data for _, data in blobs)
+    path = os.path.join(HERE, "icon.ico")
+    with open(path, "wb") as fh:
+        fh.write(out)
+    print("icon.ico written:", len(out), "bytes,", len(blobs), "entries")
 
 
 if __name__ == "__main__":
