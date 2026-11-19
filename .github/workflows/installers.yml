@@ -199,6 +199,10 @@ jobs:
                 Start-Sleep -Seconds 3
               }
               Get-ChildItem $marker -Recurse -ErrorAction SilentlyContinue | Select-Object -First 8 | ForEach-Object { Write-Host ('  数据目录 ' + $_.FullName) }
+              $db = Join-Path $marker 'dxo_filters.db'
+              if (-not (Test-Path $db)) { $fails += '首次启动后数据目录未生成 dxo_filters.db（滤镜库）' }
+              $dbHash1 = if (Test-Path $db) { (Get-FileHash $db -Algorithm SHA256).Hash.ToLower() } else { '' }
+              Write-Host ('首次启动滤镜库 SHA256 ' + $dbHash1)
               Write-Host '--- 覆盖升级：在已安装版本上再次静默安装 ---'
               $inst2 = Start-Process -FilePath $exe -ArgumentList '/S' -Wait -PassThru
               Write-Host ('覆盖安装退出码 ' + [string]$inst2.ExitCode)
@@ -220,6 +224,9 @@ jobs:
                   Start-Sleep -Seconds 3
                 }
               }
+              $dbHash2 = if (Test-Path $db) { (Get-FileHash $db -Algorithm SHA256).Hash.ToLower() } else { '' }
+              Write-Host ('覆盖升级后滤镜库 SHA256 ' + $dbHash2)
+              if ($dbHash1 -ne '' -and $dbHash2 -ne $dbHash1) { $fails += '覆盖升级改动了滤镜库 dxo_filters.db（哈希不一致）' }
               $un = Get-ChildItem $dir -Filter 'uninst*.exe' | Select-Object -First 1
               if (-not $un) {
                 $fails += '安装目录里没有卸载器'
@@ -230,6 +237,7 @@ jobs:
                 Start-Sleep -Seconds 5
                 if (Test-Path $main.FullName) { $fails += '卸载后主程序仍在' }
                 if (-not (Test-Path $marker)) { $fails += '卸载把本机数据目录（滤镜库/卡备份所在）删掉了，与交付说明不符' }
+                if (-not (Test-Path $db)) { $fails += '卸载把滤镜库 dxo_filters.db 删掉了，与交付说明不符' }
                 if (Test-Path $dir) { Write-Host '提示：卸载后安装目录仍存在（NSIS 常残留空目录），已另行核对主程序是否消失' }
               }
             }

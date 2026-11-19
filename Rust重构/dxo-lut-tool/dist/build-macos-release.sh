@@ -188,7 +188,12 @@ fi
 echo "[8/8] 归位 DMG、写 SHA 并清理构建侧第二份 App 与 DMG 工作区（本机不保留可启动的第二份 App）"
 # 走到这里新包已通过第 [7/8] 步全部校验，才替换旧包
 mv -f "$DMG" "$OUT_DIR/$DMG_NAME"
-( cd "$OUT_DIR" && rm -f SHA256SUMS.txt && shasum -a 256 "$DMG_NAME" >> SHA256SUMS.txt )
+# 重写清单时保留 OUT_DIR 里其余交付物条目（EXE / 源码包）：
+# 曾整份 rm + 只写 DMG，单独重建 Mac 会抹掉 Windows 与源码包的记录。
+( cd "$OUT_DIR" && rm -f SHA256SUMS.txt
+  for f in "$DMG_NAME" DXO-ONE-XLAB-*.exe DXO-ONE-XLAB-源码-*.tar.gz; do
+    if [ -e "$f" ]; then shasum -a 256 "$f" >> SHA256SUMS.txt; fi
+  done )
 rm -rf "$BUNDLE_DIR/macos" "$BUNDLE_DIR/dmg"
 ( cd "$OUT_DIR" && shasum -a 256 -c SHA256SUMS.txt )
 ls -la "$OUT_DIR"

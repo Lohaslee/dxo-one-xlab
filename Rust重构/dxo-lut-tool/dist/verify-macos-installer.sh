@@ -87,9 +87,22 @@ assert colors > 40, "画面过于单调，疑似未渲染"
 PY
 
 echo "[6/7] 覆盖安装（同一路径替换 App，数据目录保持不变）"
-DB="$DATA/dxo_filters.db"
-SUM="$(shasum -a 256 "$DB" | cut -d' ' -f1)"
+# 内容级快照：除 logs/ 外的数据文件（滤镜库 dxo_filters.db、store、cubes、卡备份）
+# 逐一记哈希，覆盖安装+再启动后必须逐字节一致。
+# 曾用 `[ 哈希一致 ] && echo ✅` 的弱校验：set -e 不拦 AND 列表左部的失败，
+# 比较不符时脚本照旧截图、照旧退出 0（独立复核 2026-11-19 确认的假绿缺陷）。
+manifest_data() {
+  find "$DATA" -type f -not -path "*/logs/*" -print0 | sort -z \
+    | while IFS= read -r -d '' f; do
+        printf '%s  %s\n' "$(shasum -a 256 "$f" | cut -d' ' -f1)" "${f#"$DATA"/}"
+      done
+}
 kill "$PID"; wait "$PID" 2>/dev/null || true
+PID=""
+manifest_data > "$WORK/data-manifest-1"
+[ -s "$WORK/data-manifest-1" ] || { echo "  ❌ 首次启动后数据目录为空（未生成滤镜库）"; exit 1; }
+grep -qx ".*  dxo_filters.db" "$WORK/data-manifest-1" || { echo "  ❌ 首次启动后未生成 dxo_filters.db"; exit 1; }
+echo "  首次启动数据快照: $(wc -l < "$WORK/data-manifest-1" | tr -d ' ') 个文件（logs 除外）"
 rm -rf "$WORK/Applications/$APP_NAME"
 cp -R "$WORK/mnt/$APP_NAME" "$WORK/Applications/$APP_NAME"
 codesign --verify --deep --strict "$WORK/Applications/$APP_NAME" && echo "  覆盖后签名: 有效 ✅"
@@ -97,11 +110,20 @@ DXO_DATA_DIR="$DATA" "$BIN" > "$WORK/app-stdout-2.log" 2>&1 &
 PID=$!
 sleep 6
 kill -0 "$PID" || { echo "  ❌ 覆盖安装后无法启动"; cat "$WORK/app-stdout-2.log"; exit 1; }
-[ "$(shasum -a 256 "$DB" | cut -d' ' -f1)" = "$SUM" ] && echo "  本地库未被覆盖安装改动 ✅"
 screencapture -o -x -l "$(swift "$SCRIPT_DIR/tools/window-list.swift" "$PID" | awk '$2>=1000{print $1; exit}')" "$SHOTS_DIR/macos-installed-reinstall.png"
+kill "$PID"; wait "$PID" 2>/dev/null || true
+PID=""
+manifest_data > "$WORK/data-manifest-2"
+if diff -u "$WORK/data-manifest-1" "$WORK/data-manifest-2" > "$WORK/data-manifest.diff"; then
+  echo "  覆盖安装+再启动后本地数据逐字节未变 ✅（滤镜库/参数/备份，logs 除外）"
+else
+  echo "  ❌ 覆盖安装改动了本地数据（滤镜库/参数/备份），差异如下："
+  cat "$WORK/data-manifest.diff"
+  exit 1
+fi
 
 echo "[7/7] 结束实例并卸载镜像"
-kill "$PID"; wait "$PID" 2>/dev/null || true
+if [ -n "$PID" ]; then kill "$PID"; wait "$PID" 2>/dev/null || true; fi
 PID=""
 hdiutil detach "$WORK/mnt" -force >/dev/null && echo "  已卸载 ✅"
 echo "完成 ✅ 安装路径验收通过（工作目录随脚本退出清理，本机未新增第二份 App）"
