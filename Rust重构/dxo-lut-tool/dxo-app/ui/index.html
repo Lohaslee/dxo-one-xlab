@@ -138,7 +138,8 @@ h3 { font-size: 16px; line-height: 1.3; letter-spacing: .01em; }
 /* 当前所在模块：菜单左侧 accent 竖条 */
 #tab-import:checked ~ .app .menu label[for="tab-import"],
 #tab-patch:checked  ~ .app .menu label[for="tab-patch"],
-#tab-about:checked  ~ .app .menu label[for="tab-about"] { border-left-color: var(--accent); }
+#tab-about:checked  ~ .app .menu label[for="tab-about"],
+#tab-guide:checked  ~ .app .menu label[for="tab-guide"] { border-left-color: var(--accent); }
 .menu label.menu-row { border-left: 3px solid transparent; }
 
 /* ── §4.2 pill ─────────────────────────────────────── */
@@ -219,11 +220,13 @@ h3 { font-size: 16px; line-height: 1.3; letter-spacing: .01em; }
 
 #tab-patch:checked  ~ .app .workspace #panel-patch,
 #tab-import:checked ~ .app .workspace #panel-import,
-#tab-about:checked  ~ .app .workspace #panel-about  { display: grid; }
+#tab-about:checked  ~ .app .workspace #panel-about,
+#tab-guide:checked  ~ .app .workspace #panel-guide  { display: grid; }
 
 #tab-patch:checked  ~ .app .menu label[for="tab-patch"],
 #tab-import:checked ~ .app .menu label[for="tab-import"],
-#tab-about:checked  ~ .app .menu label[for="tab-about"] {
+#tab-about:checked  ~ .app .menu label[for="tab-about"],
+#tab-guide:checked  ~ .app .menu label[for="tab-guide"] {
   background: var(--fg); color: var(--bg); border-top-color: var(--fg);
 }
 #tab-patch:checked  ~ .app .menu label[for="tab-patch"]  .n,
@@ -231,10 +234,24 @@ h3 { font-size: 16px; line-height: 1.3; letter-spacing: .01em; }
 #tab-import:checked ~ .app .menu label[for="tab-import"] .n,
 #tab-import:checked ~ .app .menu label[for="tab-import"] .s,
 #tab-about:checked  ~ .app .menu label[for="tab-about"]  .n,
-#tab-about:checked  ~ .app .menu label[for="tab-about"]  .s { color: var(--bg); }
+#tab-about:checked  ~ .app .menu label[for="tab-about"]  .s,
+#tab-guide:checked  ~ .app .menu label[for="tab-guide"]  .n,
+#tab-guide:checked  ~ .app .menu label[for="tab-guide"]  .s { color: var(--bg); }
 #tab-patch:focus-visible  ~ .app .menu label[for="tab-patch"],
 #tab-import:focus-visible ~ .app .menu label[for="tab-import"],
-#tab-about:focus-visible  ~ .app .menu label[for="tab-about"] { outline: 3px solid var(--accent); outline-offset: 2px; }
+#tab-about:focus-visible  ~ .app .menu label[for="tab-about"],
+#tab-guide:focus-visible  ~ .app .menu label[for="tab-guide"] { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* ── 操作说明页：步骤卡 + 图示 ─────────────────────── */
+.guide-step { display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 0 var(--gap-md); align-items: start; }
+.guide-step + .guide-step { margin-top: var(--gap-md); padding-top: var(--gap-md); border-top: 1px solid var(--border); }
+.guide-step .sn { font: 700 22px/1 var(--font-crt); color: var(--accent); text-align: center; padding-top: 2px; }
+.guide-step h3 { text-transform: none; letter-spacing: 0; margin-bottom: 4px; }
+.guide-step p { margin: 0; font-size: 12.5px; line-height: 1.65; color: var(--muted); }
+.guide-step .k { color: var(--fg); border: 1px solid var(--border); padding: 1px 5px; font: 11px/1.4 var(--font-mono); }
+.guide-shot { width: 100%; border: 2px solid var(--border); display: block; margin-top: var(--gap-sm); }
+.guide-live { width: 100%; border: 2px solid var(--border); display: block; }
+.guide-note { font: 11px/1.6 var(--font-mono); color: var(--muted); margin-top: 6px; }
 
 /* ── §4.6 列表行 ───────────────────────────────────── */
 .log-list { counter-reset: row; container-type: inline-size; }
@@ -452,7 +469,8 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
   .panel { display: none; }
   #tab-patch:checked  ~ .app .workspace #panel-patch,
   #tab-import:checked ~ .app .workspace #panel-import,
-  #tab-about:checked  ~ .app .workspace #panel-about { display: block; }
+  #tab-about:checked  ~ .app .workspace #panel-about,
+  #tab-guide:checked  ~ .app .workspace #panel-guide { display: block; }
   .menu { border-right: 0; border-bottom: 2px solid var(--border); padding: var(--gap-md) 0; }
   .menu-row { padding: 12px var(--gap-md); }
   .pane { overflow: visible; }
@@ -807,6 +825,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
 <input class="menu-radio" type="radio" name="menu" id="tab-import" checked>
 <input class="menu-radio" type="radio" name="menu" id="tab-patch">
 <input class="menu-radio" type="radio" name="menu" id="tab-about">
+<input class="menu-radio" type="radio" name="menu" id="tab-guide">
 
 <div class="app">
   <main>
@@ -815,7 +834,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
 
         <!-- ── 第 1 栏：菜单 ─────────────────────────── -->
         <aside class="menu" aria-label="主菜单">
-          <div class="menu-head"><span class="brand">DXO-ONE-XLAB</span><span class="idx">MENU / 03</span></div>
+          <div class="menu-head"><span class="brand">DXO-ONE-XLAB</span><span class="idx">MENU / 04</span></div>
           <div class="menu-status"><span class="status-chip status-chip--off" id="card-chip">NO CARD</span></div>
           <label class="menu-row" for="tab-import">
             <span class="n">01</span><span class="t">导入滤镜</span><span class="s">IMPORT LUT · 默认页</span>
@@ -825,6 +844,9 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
           </label>
           <label class="menu-row" for="tab-about">
             <span class="n">03</span><span class="t">关于我们</span><span class="s">ABOUT · 版本与边界</span>
+          </label>
+          <label class="menu-row" for="tab-guide">
+            <span class="n">04</span><span class="t">操作说明</span><span class="s">GUIDE · 三步上手</span>
           </label>
           <div class="menu-foot">
             点击菜单切换 · 键盘 Tab 可达
@@ -1063,7 +1085,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
               <div class="pane-section sink">
                 <div class="cap">结果日志 / OUTPUT LOG</div>
                 <div class="log-panel" id="log-patch"></div>
-                <p class="meta" style="margin-top:var(--gap-sm)">完成后在访达中安全推出存储卡，再装回相机；开机等约 3 秒再触屏。</p>
+                <p class="meta" id="patch-eject-note" style="margin-top:var(--gap-sm)">完成后在访达中安全推出存储卡，再装回相机；开机等约 3 秒再触屏。</p>
               </div>
             </div>
           </section>
@@ -1097,6 +1119,38 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
                 <p class="lead">感谢 <strong>@林达</strong> 创作的 DxO ONE v26 触屏固件，为本项目提供了触屏交互基础。</p>
                 <p class="meta">同时感谢 Eli 完成 iOS / Lightning 固件移植。触屏运行时依赖的权利归原作者，来源与说明可在「更新补丁」中查看。</p>
               </div>
+              <div class="pane-section" id="about-share">
+                <div class="cap">分享 / SHARE · 发文素材</div>
+                <p class="lead" style="margin-bottom:var(--gap-sm)">给想帮忙转发的人准备的一份草稿与配图。文案与图片均为项目真实素材，可自行取用。</p>
+                <div class="share-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+                  <a href="xhs-assets/02-velvia-comparison.png" target="_blank" title="封面 · VELVIA 效果对比"><img src="xhs-assets/02-velvia-comparison.png" alt="VELVIA 效果对比" style="width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);display:block"></a>
+                  <a href="xhs-assets/01-menu-ten-filters.png" target="_blank" title="机内十档菜单"><img src="xhs-assets/01-menu-ten-filters.png" alt="机内十档菜单" style="width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);display:block"></a>
+                  <a href="xhs-assets/03-app-import.png" target="_blank" title="桌面 App · 导入"><img src="xhs-assets/03-app-import.png" alt="桌面 App 导入页" style="width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);display:block"></a>
+                  <a href="xhs-assets/04-app-about.png" target="_blank" title="桌面 App · 关于"><img src="xhs-assets/04-app-about.png" alt="桌面 App 关于页" style="width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);display:block"></a>
+                </div>
+                <p class="meta" style="margin:8px 0">点击图片查看原图 · 顺序：01 封面 / 02 菜单 / 03 导入 / 04 关于</p>
+                <details style="border:1px solid var(--border);padding:8px 10px">
+                  <summary class="meta" style="cursor:pointer;color:var(--accent)">展开发文文案</summary>
+                  <p class="lead" style="margin-top:10px;white-space:pre-wrap">我的随身机是 DxO ONE——插在手机上、1 英寸底的小相机。画质很好，但厂商早就不更新了，机内滤镜就固定那几档，用久了会腻。
+
+于是自己动手做了个桌面端工具，0.1 版刚能用。
+
+它能做什么：
+· 把 .cube / .3dl / .csp 或 Hald 图导进来，调好强度存进本地滤镜库
+· 左边原图右边效果，对比满意了再说
+· 管理卡里的滤镜清单，切档后开机会记住上次的选择
+· 补丁安装也做进去了：写卡前只读预检、核对目标、本地备份、写完回读校验，照片不动
+
+机内现在有 11 档（含原片直出），从 Velvia、Portra 这类色彩风格到高反差黑白都有。都是拿现成风格源做的复合，不是仪器校准的“复刻”，图个好玩。
+
+目前 Mac（Apple Silicon）验证过，走源码构建；Windows 还在适配。签名安装包也还没做，愿意折腾的可以试试。
+
+一个人慢慢磨的东西，肯定不完美。但让一台停产的老相机继续有意思，这件事本身挺让我高兴的。
+
+#DxOONE #胶片滤镜 #独立开发 #摄影器材 #老相机 #数码摄影</p>
+                </details>
+                <p class="meta" style="margin-top:8px">完整预览（含复制按钮）：<a href="xhs-preview.html" target="_blank" style="color:var(--accent);text-decoration:underline">打开 xhs-preview.html</a></p>
+              </div>
             </div>
             <div class="pane pane-result">
               <div class="pane-head">
@@ -1128,6 +1182,77 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
                   <li><span>资产导出</span><span>R4 · 离线通过（模拟卷）</span></li>
                   <li><span>固件部署</span><span>R5 · App 内逐次确认后写入</span></li>
                   <li><span>实机验收</span><span>未执行</span></li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- ══ 面板 04 · 操作说明 ═══════════════════ -->
+          <section class="panel" id="panel-guide" aria-label="操作说明">
+            <div class="pane pane-op">
+              <div class="pane-head">
+                <span class="eyebrow role-in">READ / 快速上手</span>
+                <h2>操作说明</h2>
+                <p class="meta">导入滤镜与更新补丁，各三步。写卡类操作均需明确授权，照片不写入。</p>
+              </div>
+
+              <div class="pane-section" style="margin-top:0">
+                <div class="cap">流程一 / 导入滤镜</div>
+                <div class="guide-step">
+                  <span class="sn">1</span>
+                  <div><h3>选择滤镜文件</h3><p>在「导入滤镜」页，把 <span class="k">.cube / .3dl / .csp</span> 或 Hald 图像拖入，或点击「选择 LUT 文件」。支持多选，逐文件报告结果。</p></div>
+                </div>
+                <div class="guide-step">
+                  <span class="sn">2</span>
+                  <div><h3>调参数并保存</h3><p>设置影调（直出 / 中灰 / 混合）与强度，左侧预览对比满意后点「保存改动」入库；可填英文备注（≤64 字）。</p></div>
+                </div>
+                <div class="guide-step">
+                  <span class="sn">3</span>
+                  <div><h3>加入卡清单并写卡</h3><p>在卡清单加入该滤镜、设置相机名称，确认写卡后才在相机生效。写卡前只读预检、本地备份、写完回读校验。</p></div>
+                </div>
+              </div>
+
+              <div class="pane-section">
+                <div class="cap">流程二 / 更新补丁</div>
+                <div class="guide-step">
+                  <span class="sn">1</span>
+                  <div><h3>选相机类型</h3><p>在「更新补丁」页按机身原本型号选择 <span class="k">L口 / L口改C口</span> 或 <span class="k">纯C口</span>。L 口改了 C 口仍算 L 口；以固件判断，不看接口外形。</p></div>
+                </div>
+                <div class="guide-step">
+                  <span class="sn">2</span>
+                  <div><h3>插入存储卡并预检</h3><p>关机取卡、插入电脑，点「重新扫描」识别目标卡。核对安装计划与保护内容（照片 / 已有触屏设置 / 滤镜记忆）。</p></div>
+                </div>
+                <div class="guide-step">
+                  <span class="sn">3</span>
+                  <div><h3>确认安装并回装</h3><p>点「一键安装整包」并确认。完成后正常弹出卡、装回相机，开机等约 3 秒再触屏。已保留 <span class="k">DCIM</span> 与 <span class="k">touch_prefs.bin</span>。</p></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pane pane-result">
+              <div class="pane-head">
+                <span class="eyebrow role-out">READ / 图示与素材</span>
+                <h2>图示速览</h2>
+              </div>
+              <div class="pane-section" style="margin-top:0">
+                <div class="cap">启动画面 / LIVE</div>
+                <img class="guide-live" src="xhs-assets/00-boot-live.gif" alt="启动动画：镜头盖划开、点阵扫出 DXO">
+                <p class="guide-note">启动动画（GIF，可循环）。镜头盖划开 → 点阵扫字 → 进入主页。</p>
+              </div>
+              <div class="pane-section">
+                <div class="cap">功能截图 / SCREENSHOTS</div>
+                <img class="guide-shot" src="xhs-assets/05-app-导入滤镜.png" alt="导入滤镜页界面截图">
+                <p class="guide-note">① 导入滤镜页：拖入文件 → 调参数 → 保存到库。</p>
+                <img class="guide-shot" src="xhs-assets/06-app-更新补丁-机型.png" alt="更新补丁机型选择页界面截图" style="margin-top:var(--gap-md)">
+                <p class="guide-note">② 更新补丁页：按机身型号选择，L口为完整滤镜包。</p>
+              </div>
+              <div class="pane-section sink">
+                <div class="cap">安全提示 / SAFETY</div>
+                <ul class="checklist">
+                  <li><span>照片 DCIM</span><span>绝不写入</span></li>
+                  <li><span>touch_prefs</span><span>保留原件，不覆盖</span></li>
+                  <li><span>取卡</span><span>先关机再取，装回后等约 3 秒</span></li>
+                  <li><span>固件判断</span><span>以型号/固件为准，不只看接口</span></li>
                 </ul>
               </div>
             </div>
@@ -1191,7 +1316,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
   <p id="patch-success-summary"></p>
   <p id="patch-success-warning" hidden></p>
   <ol>
-    <li><strong>先在访达中安全推出存储卡，再拔卡。</strong></li>
+    <li><strong id="patch-success-eject">先在访达中安全推出存储卡，再拔卡。</strong></li>
     <li><strong>装回相机并开机，等待约 3 秒后再触屏。</strong></li>
   </ol>
   <p class="meta">照片、已有触屏设置和滤镜记忆已保留。</p>
@@ -2192,6 +2317,13 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
 
   // ── 应用信息 ──
   // ── 补丁机型选择与结果提示 ──
+  // 「去哪里安全弹出」按系统给词：Windows 不得出现「访达」，默认值保持 macOS 原文。
+  var ejectHint = '在访达中安全推出存储卡';
+  function applyEjectHint(hint) {
+    if (hint) ejectHint = hint;
+    $('patch-eject-note').textContent = '完成后' + ejectHint + '，再装回相机；开机等约 3 秒再触屏。';
+    $('patch-success-eject').textContent = '先' + ejectHint + '，再拔卡。';
+  }
   function setPatchModel(model) {
     if (writeBusy) return;
     state.patchModel = model;
@@ -2219,6 +2351,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
       var info = await invoke('patch_info'); state.patchInfo = info;
       $('patch-version').textContent = '内置 Build ' + info.build + ' · ' + info.date + ' · 完整 ' + info.count + ' 件 · 校验通过 · 可离线安装';
       $('patch-credits').textContent = info.credits;
+      applyEjectHint(info.eject_hint);
       renderRing(); renderCardStatus();
     } catch (e) {
       state.patchInfo = null;
@@ -2275,7 +2408,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
       if (res.warning) log('WARN', res.warning);
       showPatchSuccess(res, mount);
       try { await loadCards(); } catch (e) { log('WARN', '补丁已安装，刷新卡信息失败：' + e); }
-      $('patch-status').textContent = (res.warning || '安装完成，文件校验一致。请在访达中安全弹出，装回相机后开机等待约 3 秒。') + ' 本地备份：' + res.backup_dir;
+      $('patch-status').textContent = (res.warning || '安装完成，文件校验一致。请' + ejectHint + '，装回相机后开机等待约 3 秒。') + ' 本地备份：' + res.backup_dir;
       toast('完整版安装完成，请安全弹出存储卡', 'ok');
     } catch (e) {
       $('patch-status').textContent = '未完成：' + e;

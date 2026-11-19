@@ -111,6 +111,21 @@ fn row_to_record(r: &rusqlite::Row<'_>) -> rusqlite::Result<FilterRecord> {
     })
 }
 
+/// 平台数据目录规则（纯函数：在任意主机上都能单测三套平台的取值）。
+/// Windows 走系统本地应用数据目录，macOS 保持原 ~/Library/Application Support 不变。
+fn db_dir_for(os: &str, env: &dyn Fn(&str) -> Option<String>) -> PathBuf {
+    match os {
+        "windows" => {
+            let base = env("LOCALAPPDATA")
+                .or_else(|| env("USERPROFILE").map(|p| format!("{p}\\AppData\\Local")))
+                .unwrap_or_default();
+            PathBuf::from(base).join("DXO-ONE-XLAB")
+        }
+        "macos" => PathBuf::from(env("HOME").unwrap_or_default()).join("Library/Application Support/DXO-ONE-XLAB"),
+        _ => PathBuf::from(env("HOME").unwrap_or_default()).join(".local/share/DXO-ONE-XLAB"),
+    }
+}
+
 impl Store {
     /// 打开或创建持久化存储。
     ///
@@ -121,12 +136,8 @@ impl Store {
         if let Some(p) = std::env::var_os("DXO_DATA_DIR") {
             return std::path::PathBuf::from(p);
         }
-        let home = std::env::var_os("HOME").unwrap_or_default();
-        #[cfg(target_os = "macos")]
-        let rel = "Library/Application Support/DXO-ONE-XLAB";
-        #[cfg(not(target_os = "macos"))]
-        let rel = ".local/share/DXO-ONE-XLAB";
-        std::path::PathBuf::from(home).join(rel)
+        let env = |k: &str| std::env::var_os(k).map(|v| v.to_string_lossy().into_owned());
+        db_dir_for(std::env::consts::OS, &env)
     }
 
     pub fn open(db_dir: impl AsRef<Path>) -> Result<Self, StoreError> {
@@ -663,6 +674,28 @@ mod tests {
         let mut v = vec![0xAB; CC_TABLE_LEN];
         v[100] = seed;
         v
+    }
+
+    #[test]
+    fn default_data_dir_rules_per_platform() {
+        let env = |k: &str| match k {
+            "HOME" => Some("/home/张三".to_string()),
+            "LOCALAPPDATA" => Some("C:\\Users\\张三\\AppData\\Local".to_string()),
+            "USERPROFILE" => Some("C:\\Users\\张三".to_string()),
+            _ => None,
+        };
+        assert_eq!(
+            db_dir_for("macos", &env),
+            Path::new("/home/张三").join("Library/Application Support/DXO-ONE-XLAB")
+        );
+        assert_eq!(
+            db_dir_for("windows", &env),
+            Path::new("C:\\Users\\张三\\AppData\\Local").join("DXO-ONE-XLAB")
+        );
+        assert_eq!(db_dir_for("linux", &env), Path::new("/home/张三").join(".local/share/DXO-ONE-XLAB"));
+        // LOCALAPPDATA 缺失时按 USERPROFILE 推导，不留相对路径
+        let no_local = |k: &str| if k == "USERPROFILE" { Some("C:\\Users\\李四".to_string()) } else { None };
+        assert_eq!(db_dir_for("windows", &no_local), Path::new("C:\\Users\\李四\\AppData\\Local").join("DXO-ONE-XLAB"));
     }
 
     fn newf<'a>(name: &'a str, cc_bytes: &'a [u8]) -> NewFilter<'a> {

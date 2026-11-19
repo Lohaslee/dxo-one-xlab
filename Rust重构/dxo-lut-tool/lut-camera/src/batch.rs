@@ -38,8 +38,8 @@ const PATCH_DIRS: &[&str] = &["DXO_FILTERS", "dxot", "PH_DIAG"];
 
 /// 安装只开放固定整包路径；照片、开机记忆及未知文件永远不在白名单内。
 pub fn validate_patch_layout(root: &Path) -> Result<(), CameraError> {
-    let canonical = root.canonicalize()?;
-    let root = canonical.as_path();
+    let root = crate::volume::canonical_root(root)?;
+    let root = root.as_path();
     for dir in PATCH_DIRS {
         match fs::symlink_metadata(root.join(dir)) {
             Ok(m) if !m.file_type().is_dir() => return Err(CameraError::BadInput(format!("目录无效: {dir}"))),
@@ -67,7 +67,7 @@ fn target(root: &Path, rel: &str, include_touch: bool, patch: bool) -> Result<Pa
     // 不沿符号链接写到卡外；整包仅允许稍后创建固定父目录。
     let missing_patch_dir = patch && PATCH_DIRS.iter().any(|d| parent == root.join(d))
         && matches!(fs::symlink_metadata(parent), Err(e) if e.kind() == std::io::ErrorKind::NotFound);
-    if !missing_patch_dir && (parent.canonicalize()? != parent || !parent.is_dir()) {
+    if !missing_patch_dir && (!crate::volume::dir_is_self_same(parent)? || !parent.is_dir()) {
         return Err(CameraError::BadInput(format!("目标目录无效: {rel}")));
     }
     match fs::symlink_metadata(&full) {
@@ -103,9 +103,9 @@ pub fn write_patch_batch(root: &Path, files: &[BatchFile], backup_dir: &Path, fa
 }
 
 fn write_batch_inner(root: &Path, files: &[BatchFile], backup_dir: &Path, include_touch: bool, patch: bool, fault: &dyn FaultInjector) -> Result<(), String> {
-    let root = root.canonicalize().map_err(|e| format!("未写入：存储卡不可用: {e}"))?;
+    let root = crate::volume::canonical_root(root).map_err(|e| format!("未写入：存储卡不可用: {e}"))?;
     let ancestor = backup_dir.ancestors().find(|p| p.exists()).ok_or("本地备份目录无效")?;
-    if ancestor.canonicalize().map_err(|e| e.to_string())?.starts_with(&root) {
+    if crate::volume::backup_inside_card(ancestor, &root).map_err(|e| e.to_string())? {
         return Err("未写入：备份必须保存在存储卡以外的本机目录".into());
     }
     if patch { validate_patch_layout(&root).map_err(|e| format!("未写入：{e}"))?; }
@@ -149,7 +149,7 @@ fn write_batch_inner(root: &Path, files: &[BatchFile], backup_dir: &Path, includ
             write_synced(&backup_dir.join("created-dirs.json"), &serde_json::to_vec(&dirs).map_err(|e| CameraError::BadInput(e.to_string()))?)?;
         }
         write_synced(&backup_dir.join("status"), b"prepared")?;
-        crate::fsync_parent(&backup_dir.join("status"));
+        crate::volume::fsync_parent(&backup_dir.join("status"));
         Ok(())
     })();
     prepare.map_err(|e| format!("未写入：本地备份失败: {e}"))?;
@@ -164,7 +164,7 @@ fn write_batch_inner(root: &Path, files: &[BatchFile], backup_dir: &Path, includ
                     return Err(format!("创建 {dir} 失败: {e}；未写入补丁文件。备份：{}", backup_dir.display()));
                 }
                 created_dirs.push(p);
-                crate::fsync_parent(&root.join(dir));
+                crate::volume::fsync_parent(&root.join(dir));
             }
         }
     }
@@ -183,7 +183,7 @@ fn write_batch_inner(root: &Path, files: &[BatchFile], backup_dir: &Path, includ
                             Err(e) => return Err(e.into()),
                         }
                     }
-                    crate::fsync_parent(&targets[j]);
+                    crate::volume::fsync_parent(&targets[j]);
                     Ok(())
                 })();
                 if let Err(re) = restore { failures.push(format!("{}: {re}", files[j].path)); }

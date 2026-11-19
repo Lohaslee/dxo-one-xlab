@@ -276,8 +276,13 @@ pub fn export_bundle(
     safe_write(&tp, &serde_json::to_vec_pretty(&top).unwrap_or_default())?;
     written.push(tp);
 
-    // 落盘：确保目录项也到介质上
+    // 落盘：确保目录项也到介质上（尽力而为，与旧实现一致）
+    #[cfg(unix)]
     unsafe { libc::sync() };
+    #[cfg(not(unix))]
+    {
+        let _ = crate::volume::sync_volume(&dxo_dir);
+    }
 
     Ok(ExportReport {
         written,

@@ -30,37 +30,49 @@ struct Disk {
     free: u64,
 }
 
+/// macOS：把 `diskutil info -plist` 的输出整理成卷事实，判定交给平台共用策略。
+#[cfg(not(windows))]
 fn disk_from_plist(v: &plist::Value, mount: &str) -> Result<Disk, String> {
     let d = v.as_dictionary().ok_or("无法读取存储卡信息")?;
-    let s = |k| d.get(k).and_then(plist::Value::as_string).unwrap_or("");
+    let s = |k| d.get(k).and_then(plist::Value::as_string).unwrap_or("").to_string();
     let b = |k| d.get(k).and_then(plist::Value::as_boolean);
-    if s("MountPoint") != mount || b("Internal") != Some(false) {
-        return Err("请选择已挂载的外置相机存储卡".into());
-    }
-    if b("WritableVolume") != Some(true) || b("WritableMedia") == Some(false) {
-        return Err("存储卡只读，请解锁后重试".into());
-    }
-    if !["msdos", "exfat"].contains(&s("FilesystemType").to_lowercase().as_str()) {
-        return Err("仅支持 FAT32 / exFAT 相机卡".into());
-    }
-    if s("FilesystemType") == "msdos" && !s("FilesystemName").contains("FAT32") {
-        return Err("FAT16 卡不受支持，请先在相机中格式化为 FAT32 / exFAT".into());
-    }
-    let free = d.get("VolumeFreeSpace").or_else(|| d.get("FreeSpace"))
-        .and_then(plist::Value::as_unsigned_integer).ok_or("无法读取卡剩余空间")?;
-    if s("DeviceIdentifier").is_empty() || s("VolumeUUID").is_empty() { return Err("存储卡身份信息不完整".into()); }
-    Ok(Disk { device: s("DeviceIdentifier").into(), uuid: s("VolumeUUID").into(), filesystem: s("FilesystemType").into(), free })
+    let facts = lut_camera::volume::VolumeFacts {
+        mount_matches: s("MountPoint") == mount,
+        internal: b("Internal"),
+        writable_volume: b("WritableVolume"),
+        writable_media: b("WritableMedia"),
+        fs_type: s("FilesystemType").to_lowercase(),
+        fs_name: s("FilesystemName"),
+        free_bytes: d.get("VolumeFreeSpace").or_else(|| d.get("FreeSpace"))
+            .and_then(plist::Value::as_unsigned_integer),
+        device: s("DeviceIdentifier"),
+        volume_uuid: s("VolumeUUID"),
+        label: s("Volume Name"),
+    };
+    lut_camera::volume::assess_camera_card(&facts)?;
+    Ok(Disk { device: facts.device, uuid: facts.volume_uuid, filesystem: facts.fs_type, free: facts.free_bytes.unwrap_or(0) })
 }
 
+/// 所选路径必须是「已挂载的外置卷根」：macOS 走 diskutil，Windows 走卷/存储查询。
+/// 普通目录、符号链接、系统盘一律不得作为相机卡。
 fn mounted_disk(root: &Path) -> Result<Disk, String> {
-    if root.parent() != Some(Path::new("/Volumes")) || root.canonicalize().map_err(|e| e.to_string())? != root {
-        return Err("请选择 /Volumes 下的已挂载相机卡，不能选择目录或符号链接".into());
+    #[cfg(windows)]
+    {
+        let facts = lut_camera::volume::query_volume(root)?;
+        lut_camera::volume::assess_camera_card(&facts)?;
+        return Ok(Disk { device: facts.device, uuid: facts.volume_uuid, filesystem: facts.fs_type, free: facts.free_bytes.unwrap_or(0) });
     }
-    let o = std::process::Command::new("/usr/sbin/diskutil").args(["info", "-plist"]).arg(root)
-        .output().map_err(|e| format!("读卡信息失败: {e}"))?;
-    if !o.status.success() { return Err("存储卡已拔出或未挂载".into()); }
-    let v = plist::Value::from_reader_xml(o.stdout.as_slice()).map_err(|e| format!("读卡信息无效: {e}"))?;
-    disk_from_plist(&v, root.to_str().ok_or("挂载路径无效")?)
+    #[cfg(not(windows))]
+    {
+        if root.parent() != Some(Path::new("/Volumes")) || root.canonicalize().map_err(|e| e.to_string())? != root {
+            return Err("请选择 /Volumes 下的已挂载相机卡，不能选择目录或符号链接".into());
+        }
+        let o = std::process::Command::new("/usr/sbin/diskutil").args(["info", "-plist"]).arg(root)
+            .output().map_err(|e| format!("读卡信息失败: {e}"))?;
+        if !o.status.success() { return Err("存储卡已拔出或未挂载".into()); }
+        let v = plist::Value::from_reader_xml(o.stdout.as_slice()).map_err(|e| format!("读卡信息无效: {e}"))?;
+        disk_from_plist(&v, root.to_str().ok_or("挂载路径无效")?)
+    }
 }
 
 struct Prepared { reply: Value, files: Vec<BatchFile> }
@@ -97,11 +109,8 @@ fn prepare(root: &Path, disk: Disk) -> Result<Prepared, String> {
     // 最后发布启动入口；完整回读前不提示可拔卡。
     files.sort_by_key(|f| f.path == "autoexec.ash");
     let dirs: Vec<_> = ["DXO_FILTERS", "dxot", "PH_DIAG"].into_iter().filter(|d| !root.join(d).exists()).collect();
-    let meta = fs::metadata(root).map_err(|e| e.to_string())?;
-    #[cfg(unix)]
-    let identity = { use std::os::unix::fs::MetadataExt; (meta.dev(), meta.ino()) };
-    #[cfg(not(unix))]
-    let identity = (meta.len(), 0u64);
+    // 卷身份参与指纹：Windows 上换卡即使盘符相同，卷 GUID/序列号也会变化，须重新确认
+    let identity = lut_camera::volume::card_identity(root).map_err(|e| e.to_string())?;
     let current = lut_camera::probe(root).ok().and_then(|p| p.build_tag);
     let digest = Store::hash_bytes(&serde_json::to_vec(&json!(["lightning-full-72", identity, disk, snapshot, dirs])).map_err(|e| e.to_string())?);
     let reply = json!({"build": "72", "firmware": "3.2.0 (ecef5ef809)", "mount": root.to_string_lossy(),
@@ -130,7 +139,8 @@ fn prepare_confirmed(root: &Path, disk: Disk, digest: &str) -> Result<Prepared, 
 pub fn patch_info() -> Result<Value, String> {
     validate_bundle()?;
     let filters: Vec<_> = BUNDLE.iter().filter_map(|(p, _, _)| p.strip_prefix("DXO_FILTERS/lut_").and_then(|p| p.strip_suffix(".bin"))).collect();
-    Ok(json!({"build": "72", "date": "2026-11-17", "firmware": "3.2.0 (ecef5ef809)", "count": BUNDLE.len(), "credits": CREDITS, "filters": filters}))
+    Ok(json!({"build": "72", "date": "2026-11-17", "firmware": "3.2.0 (ecef5ef809)", "count": BUNDLE.len(), "credits": CREDITS, "filters": filters,
+        "eject_hint": lut_camera::volume::EJECT_UI_HINT}))
 }
 
 #[tauri::command]
@@ -157,8 +167,11 @@ pub async fn patch_install(app: tauri::AppHandle, mount: String, confirmation_to
             let root = Path::new(&mount);
             let p = prepare_confirmed(root, mounted_disk(root)?, &digest)?;
             let mut res = install(&Store::default_db_dir(), root, p, &lut_camera::NoFault)?;
-            if !std::process::Command::new("/bin/sync").status().is_ok_and(|s| s.success()) {
-                res["warning"] = json!("文件已回读一致，但系统刷盘未确认；请通过访达安全弹出后再拔卡");
+            if let Err(e) = lut_camera::volume::sync_volume(root) {
+                res["warning"] = json!(format!(
+                    "文件已回读一致，但系统刷盘未确认（{e}）；请{}后再拔卡",
+                    lut_camera::volume::EJECT_UI_HINT
+                ));
             }
             Ok(res)
         }).await.map_err(|e| format!("安装线程异常，请保留卡并检查本地备份: {e}"))?
@@ -277,6 +290,7 @@ mod tests {
         let f = BatchFile { path: "touch_prefs.bin".into(), bytes: vec![1], before_sha: batch::before_sha(&v.path().join("touch_prefs.bin")).unwrap() };
         assert!(batch::write_patch_batch(v.path(), &[f], &db.path().join("backup"), &lut_camera::NoFault).is_err());
     }
+    #[cfg(not(windows))]
     #[test]
     fn disk_preflight_rejects_wrong_mount_fs_internal_and_readonly() {
         let mut v: plist::Value = plist::from_bytes(br#"<?xml version="1.0"?><plist version="1.0"><dict>
@@ -297,5 +311,13 @@ mod tests {
         assert!(disk_from_plist(&v, "/Volumes/CARD").is_ok());
         v.as_dictionary_mut().unwrap().insert("FilesystemName".into(), plist::Value::String("MS-DOS FAT16".into()));
         assert!(disk_from_plist(&v, "/Volumes/CARD").is_err());
+    }
+
+    #[test]
+    fn patch_info_reports_platform_eject_wording() {
+        let hint = patch_info().unwrap()["eject_hint"].as_str().unwrap().to_string();
+        assert!(!hint.is_empty());
+        // Windows 的安装说明不得沿用「访达」；macOS 保持原文
+        assert_eq!(hint.contains("访达"), cfg!(not(windows)), "弹出文案与平台不符: {hint}");
     }
 }

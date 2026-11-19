@@ -1,0 +1,114 @@
+name: installers
+
+# 安装包构建入口：macOS arm64 DMG 与 Windows x64 NSIS EXE 各自在原生 runner 上构建。
+# 默认不自动触发（避免误发布）；需要时手动 workflow_dispatch，产物以 artifact 形式回收，
+# 不发布到任何公开渠道。签名/公证凭据缺失时产物保持未签名，脚本会在日志中如实标注。
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  macos-arm64:
+    runs-on: macos-14
+    env:
+      # 有 Developer ID 时在仓库 Secrets 中配置，脚本会自动改用正式签名并尝试公证
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Regression tests
+        run: |
+          node --test "Rust重构/dxo-lut-tool/dxo-app/tests/ui-state.test.cjs"
+          (cd "Rust重构/dxo-lut-tool" && cargo test --locked -p lut-core -p lut-persist -p lut-camera -p dxo-app)
+      - name: Build DMG
+        run: bash "Rust重构/dxo-lut-tool/dist/build-macos-release.sh"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-dmg
+          path: |
+            Rust重构/dxo-lut-tool/dist/release/*.dmg
+            Rust重构/dxo-lut-tool/dist/release/SHA256SUMS.txt
+
+  windows-x64:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      # 有代码签名证书时配置；未配置则产物保持未签名
+      TAURI_WINDOWS_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Regression tests
+        run: |
+          node --test "Rust重构/dxo-lut-tool/dxo-app/tests/ui-state.test.cjs"
+          (cd "Rust重构/dxo-lut-tool" && cargo test --locked -p lut-core -p lut-persist -p lut-camera -p dxo-app)
+      - name: Create FAT32 / exFAT test volumes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force C:\dxo-vhd | Out-Null
+          foreach ($t in @(
+              @{ name = 'card32'; fs = 'FAT32'; letter = 'V' },
+              @{ name = 'cardex'; fs = 'exFAT'; letter = 'W' })) {
+            $vhd = "C:\dxo-vhd\$($t.name).vhd"
+            @"
+create vdisk file="$vhd" maximum=256 type=expandable
+select vdisk file="$vhd"
+attach vdisk
+convert mbr
+create partition primary
+format quick fs=$($t.fs) label="DXO$($t.name)"
+assign letter=$($t.letter)
+"@ | Set-Content -Encoding ascii "C:\dxo-vhd\$($t.name).txt"
+            diskpart /s "C:\dxo-vhd\$($t.name).txt"
+          }
+          Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DeviceID -in 'V:','W:' } |
+            Select-Object DeviceID, DriveType, FileSystem | Format-Table -AutoSize | Out-String -Width 120
+      - name: Windows runtime volume evidence
+        shell: bash
+        run: |
+          cd "Rust重构/dxo-lut-tool"
+          echo '--- 仅系统卷与盘符枚举（无测试卷环境下的下限） ---'
+          cargo test --locked -p lut-camera --test windows_volume_facts -- --nocapture
+          echo '--- FAT32 虚拟卷（V:） ---'
+          DXO_TEST_VOLUME=V DXO_TEST_FSTYPE=msdos cargo test --locked -p lut-camera --test windows_volume_facts -- --nocapture test_volume_reports
+          echo '--- exFAT 虚拟卷（W:） ---'
+          DXO_TEST_VOLUME=W DXO_TEST_FSTYPE=exfat cargo test --locked -p lut-camera --test windows_volume_facts -- --nocapture test_volume_reports
+      - name: Detach test volumes
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($n in 'card32', 'cardex') {
+            $vhd = "C:\dxo-vhd\$n.vhd"
+            if (Test-Path $vhd) {
+              @"
+select vdisk file="$vhd"
+detach vdisk
+"@ | Set-Content -Encoding ascii "C:\dxo-vhd\detach-$n.txt"
+              diskpart /s "C:\dxo-vhd\detach-$n.txt"
+            }
+          }
+      - name: Build NSIS setup
+        run: bash "Rust重构/dxo-lut-tool/dist/build-windows-release.sh"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-setup
+          path: |
+            Rust重构/dxo-lut-tool/dist/release/*Setup.exe
+            Rust重构/dxo-lut-tool/dist/release/SHA256SUMS.txt

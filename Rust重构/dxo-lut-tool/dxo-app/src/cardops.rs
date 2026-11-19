@@ -193,8 +193,58 @@ fn list_reply(plan: &CardPlan, profile: &lut_camera::CardProfile) -> serde_json:
     })
 }
 
+/// 卷是否进入候选列表：外置介质 / 卡上有 ph_menu.bin / 用户显式配置的相机卷。
+/// 两套平台共用同一条规则，避免 Windows 分支自行放宽。
+fn keep_card(external: bool, has_ph_menu: bool, is_known: bool) -> bool {
+    external || has_ph_menu || is_known
+}
+
+/// 已知相机卷判定：与 DXO_CARD_UUID 比对（Windows 的卷 GUID 同样按该变量配置）。
+fn is_known_card(uuid: &str) -> bool {
+    lut_camera::configured_card_uuid().is_some_and(|configured| uuid == configured)
+}
+
+fn card_row(mount: &Path, volume_name: String, device: String, uuid: String) -> serde_json::Value {
+    let has_ph = mount.join("ph_menu.bin").is_file();
+    let known = is_known_card(&uuid);
+    serde_json::json!({
+        "mount_point": mount.to_string_lossy(),
+        "volume_name": volume_name,
+        "device": device,
+        "uuid": uuid,
+        "has_ph_menu": has_ph,
+        "is_known": known,
+    })
+}
+
+fn sort_cards(mut out: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+    out.sort_by(|a, b| {
+        let ka = a["is_known"].as_bool().unwrap_or(false);
+        let kb = b["is_known"].as_bool().unwrap_or(false);
+        kb.cmp(&ka).then_with(|| a["volume_name"].as_str().cmp(&b["volume_name"].as_str()))
+    });
+    out
+}
+
+/// 卷枚举的入口目录：macOS 是 `/Volumes`；Windows 按盘符查询，参数不使用。
+fn volumes_dir() -> &'static Path {
+    if cfg!(windows) { Path::new("") } else { Path::new("/Volumes") }
+}
+
 /// 枚举已挂载卷（只读）：外置卷 / 含 ph_menu.bin 的卷 / 显式配置的相机 UUID。
 fn enumerate_cards(volumes_dir: &Path) -> Vec<serde_json::Value> {
+    #[cfg(windows)]
+    {
+        let _ = volumes_dir;
+        sort_cards(enumerate_drive_cards())
+    }
+    #[cfg(not(windows))]
+    sort_cards(enumerate_volumes_dir(volumes_dir))
+}
+
+/// macOS：遍历 `/Volumes` 子目录并用 `diskutil info` 取卷属性。
+#[cfg(not(windows))]
+fn enumerate_volumes_dir(volumes_dir: &Path) -> Vec<serde_json::Value> {
     let mut out = Vec::new();
     let Ok(rd) = std::fs::read_dir(volumes_dir) else { return out };
     for e in rd.flatten() {
@@ -228,25 +278,28 @@ fn enumerate_cards(volumes_dir: &Path) -> Vec<serde_json::Value> {
                 }
             }
         }
-        let has_ph = p.join("ph_menu.bin").is_file();
-        let known = lut_camera::configured_card_uuid().is_some_and(|configured| uuid == configured);
-        if !external && !has_ph && !known {
+        if !keep_card(external, p.join("ph_menu.bin").is_file(), is_known_card(&uuid)) {
             continue;
         }
-        out.push(serde_json::json!({
-            "mount_point": p.to_string_lossy(),
-            "volume_name": vname,
-            "device": device,
-            "uuid": uuid,
-            "has_ph_menu": has_ph,
-            "is_known": known,
-        }));
+        out.push(card_row(&p, vname, device, uuid));
     }
-    out.sort_by(|a, b| {
-        let ka = a["is_known"].as_bool().unwrap_or(false);
-        let kb = b["is_known"].as_bool().unwrap_or(false);
-        kb.cmp(&ka).then_with(|| a["volume_name"].as_str().cmp(&b["volume_name"].as_str()))
-    });
+    out
+}
+
+/// Windows：遍历盘符卷，用卷/存储查询取同一组属性；查询失败的卷直接跳过（不放行）。
+#[cfg(windows)]
+fn enumerate_drive_cards() -> Vec<serde_json::Value> {
+    let mut out = Vec::new();
+    for root in lut_camera::volume::volume_roots() {
+        let Ok(f) = lut_camera::volume::query_volume(&root) else { continue };
+        // 内置盘且卷信息不全时不作为候选，避免把系统盘/普通目录列成相机卡
+        let external = f.internal == Some(false);
+        if !keep_card(external, root.join("ph_menu.bin").is_file(), is_known_card(&f.volume_uuid)) {
+            continue;
+        }
+        let name = if f.label.is_empty() { root.to_string_lossy().into_owned() } else { f.label };
+        out.push(card_row(&root, name, f.device, f.volume_uuid));
+    }
     out
 }
 
@@ -529,11 +582,8 @@ fn prepare_write(db: &Path, mount: &str) -> Result<PreparedWrite, String> {
         let sha = lut_camera::batch::before_sha(&root.join("DXO_FILTERS").join(name)).map_err(|e| e.to_string())?;
         source.push(serde_json::json!([name, sha]));
     }
-    let meta = std::fs::metadata(root).map_err(|e| e.to_string())?;
-    #[cfg(unix)]
-    let identity = { use std::os::unix::fs::MetadataExt; (meta.dev(), meta.ino()) };
-    #[cfg(not(unix))]
-    let identity = (meta.len(), 0u64);
+    // 卷身份参与指纹：Windows 上换卡即使盘符相同，卷 GUID/序列号也会变化，须重新确认
+    let identity = lut_camera::volume::card_identity(root).map_err(|e| e.to_string())?;
     let targets: Vec<_> = files.iter().map(|f| serde_json::json!({ "file": f.path, "sha": Store::hash_bytes(&f.bytes), "from_sha": f.before_sha, "bytes": f.bytes.len() })).collect();
     let digest = Store::hash_bytes(&serde_json::to_vec(&serde_json::json!([identity, plan, source, targets])).map_err(|e| e.to_string())?);
     let reply = serde_json::json!({
@@ -595,7 +645,7 @@ fn op_apply(db: &Path, mount: &str) -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 pub async fn list_cards() -> Result<Vec<serde_json::Value>, String> {
-    tauri::async_runtime::spawn_blocking(|| enumerate_cards(Path::new("/Volumes")))
+    tauri::async_runtime::spawn_blocking(|| enumerate_cards(volumes_dir()))
         .await
         .map_err(|e| format!("枚举线程失败: {e}"))
 }
@@ -1275,6 +1325,8 @@ mod tests {
         assert_eq!(std::fs::read(vol.path().join("ph_menu.bin")).unwrap(), ph1);
     }
 
+    /// 目录式卷枚举是 macOS/Linux 路径；Windows 走盘符查询，另由 volume 模块的策略测试覆盖。
+    #[cfg(not(windows))]
     #[test]
     fn test_enumerate_cards_filters_internal_volumes() {
         let dir = tempfile::tempdir().unwrap();
@@ -1286,6 +1338,14 @@ mod tests {
         assert_eq!(out.len(), 1);
         assert_eq!(out[0]["volume_name"], "DXOCard");
         assert_eq!(out[0]["has_ph_menu"], true);
+    }
+
+    #[test]
+    fn card_candidate_rule_is_shared_across_platforms() {
+        assert!(keep_card(true, false, false), "外置卷入选");
+        assert!(keep_card(false, true, false), "含 ph_menu 的卷入选");
+        assert!(keep_card(false, false, true), "显式配置的相机卷入选");
+        assert!(!keep_card(false, false, false), "内置盘上的普通目录不得入选");
     }
 
     /// 真实写卡入口：默认忽略；仅用户逐次点名授权后显式运行：
@@ -1323,7 +1383,7 @@ mod tests {
             .map(|e| (e.file_name(), std::fs::read(e.path()).unwrap()))
             .collect();
 
-        let cards = enumerate_cards(Path::new("/Volumes"));
+        let cards = enumerate_cards(volumes_dir());
         eprintln!("== 卷枚举 ==");
         for c in &cards {
             eprintln!("  {} · {} · known={} ph={}", c["volume_name"], c["device"], c["is_known"], c["has_ph_menu"]);

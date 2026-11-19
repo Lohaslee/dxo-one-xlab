@@ -297,3 +297,29 @@ test('camera name saves uppercase to card plan without writing card; invalid or 
   input.value = 'B-W'; await ctx.tfSetMenuName('local:1', input);
   assert.equal(input.value, 'FUYUNO'); assert.equal(ctx.state.tf.items[0].menu, 'FUYUNO');
 });
+
+const patchInfoHook = (ctx, hint) => {
+  const prev = ctx.hook;
+  ctx.hook = async (command, args) => command === 'patch_info'
+    ? { build: '72', date: '2026-11-17', count: 19, credits: 'c', firmware: '3.2.0 (ecef5ef809)', filters: [], eject_hint: hint }
+    : prev(command, args);
+};
+
+test('patch page adopts the system eject wording per platform', async () => {
+  const windows = setup();
+  patchHandlers(windows.ctx);
+  patchInfoHook(windows.ctx, '在「此电脑」中右键该卷选择「弹出」');
+  await windows.ctx.loadPatchInfo();
+  assert.match(windows.el('patch-eject-note').textContent, /此电脑/);
+  assert.doesNotMatch(windows.el('patch-eject-note').textContent, /访达/);
+  assert.match(windows.el('patch-success-eject').textContent, /此电脑/);
+  assert.doesNotMatch(windows.el('patch-success-eject').textContent, /访达/);
+
+  // 独立会话未收到提示时，保持 macOS 原文不变
+  const mac = setup();
+  patchHandlers(mac.ctx);
+  patchInfoHook(mac.ctx, undefined);
+  await mac.ctx.loadPatchInfo();
+  assert.match(mac.el('patch-eject-note').textContent, /完成后在访达中安全推出存储卡，再装回相机/);
+  assert.match(mac.el('patch-success-eject').textContent, /^先在访达中安全推出存储卡，再拔卡。$/);
+});

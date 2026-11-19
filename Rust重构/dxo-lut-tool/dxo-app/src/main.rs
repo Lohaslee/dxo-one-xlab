@@ -623,6 +623,8 @@ fn main() {
             preview::preview_reset_image, preview::preview_cancel, preview::preview_image_info
         ])
         .setup(|app| {
+            #[cfg(not(target_os = "macos"))]
+            let _ = app;
             // F-13a：WKWebView 须显式允许 magnify 手势，trackpad 捏合才会派发
             // gesturestart/change 到 JS；页面级原生放大由前端 preventDefault 接管，
             // 缩放只作用于照片内框（见 ui 缩放块）。

@@ -11,7 +11,7 @@
     "windows": [
       {
         "title": "DXO-ONE-XLAB",
-        "theme": "dark",
+        "theme": "Dark",
         "width": 1280,
         "height": 820,
         "minWidth": 820,
@@ -23,5 +23,13 @@
     "security": {
       "csp": null
     }
+  },
+  "bundle": {
+    "active": true,
+    "category": "public.app-category.photography",
+    "publisher": "DXO-ONE-XLAB",
+    "homepage": "https://github.com/Lohaslee/dxo-one-xlab",
+    "shortDescription": "DxO ONE 机内滤镜与 Lightning 补丁工具",
+    "copyright": "© DXO-ONE-XLAB · 见仓库 LICENSE/THIRD_PARTY.md 使用条款"
   }
 }

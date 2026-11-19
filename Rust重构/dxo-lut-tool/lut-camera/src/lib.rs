@@ -10,12 +10,14 @@ pub mod card;
 pub mod export;
 pub mod rebuild;
 pub mod batch;
+pub mod volume;
 pub use card::{probe, CardProfile, PackageInfo, SlotEntry, ToolDefaults};
 pub use export::{card_safe_name, export_bundle, item_paths, list_bundles, read_bundle, table_from_package, validate_rel_path, BundleRead, ExportItem, ExportReport, ItemPaths, RelFile, CUSTOM_MAX, MANIFEST_SCHEMA};
 
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+#[cfg(not(windows))]
 use std::process::Command;
 use thiserror::Error;
 
@@ -139,13 +141,19 @@ pub fn validate_safe_path(path: &Path) -> Result<(), CameraError> {
 
 /// 查找相机存储卡。
 ///
-/// 通过 `diskutil info` 查找 DXO_CARD_UUID 指定的分区；未配置时不猜测目标。
+/// 只按 DXO_CARD_UUID 匹配，未配置时不猜测目标；平台差异收在 `find_card_by_uuid`。
 pub fn find_card() -> Result<CardInfo, CameraError> {
     let uuid = configured_card_uuid().ok_or_else(|| CameraError::BadInput(
         "旧版卡接口需设置 DXO_CARD_UUID；当前 Tauri App 可直接扫描并选择存储卡".into()
     ))?;
+    find_card_by_uuid(&uuid)
+}
+
+/// macOS：通过 `diskutil info` 查找该 UUID 对应的分区。
+#[cfg(not(windows))]
+fn find_card_by_uuid(uuid: &str) -> Result<CardInfo, CameraError> {
     let output = Command::new("diskutil")
-        .args(["info", &uuid])
+        .args(["info", uuid])
         .output()
         .map_err(|e| CameraError::Command(e.to_string()))?;
 
@@ -181,9 +189,27 @@ pub fn find_card() -> Result<CardInfo, CameraError> {
     Ok(CardInfo {
         device,
         mount_point,
-        uuid,
+        uuid: uuid.to_string(),
         volume_name,
     })
+}
+
+/// Windows：在盘符卷中按卷 GUID 匹配 DXO_CARD_UUID；查不到就报未找到，不回退为任意目录。
+#[cfg(windows)]
+fn find_card_by_uuid(uuid: &str) -> Result<CardInfo, CameraError> {
+    let want = uuid.to_lowercase();
+    for root in volume::volume_roots() {
+        let Ok(f) = volume::query_volume(&root) else { continue };
+        if f.volume_uuid.to_lowercase().contains(&want) {
+            return Ok(CardInfo {
+                device: f.device,
+                mount_point: Some(root),
+                uuid: f.volume_uuid,
+                volume_name: (!f.label.is_empty()).then_some(f.label),
+            });
+        }
+    }
+    Err(CameraError::CardNotFound)
 }
 
 /// 检查存储卡是否已挂载。
@@ -259,18 +285,6 @@ fn fsync_file(f: &fs::File) -> io::Result<()> {
     f.sync_all()
 }
 
-/// 同步父目录，确保 rename 目录项落盘（尽力而为）。
-fn fsync_parent(path: &Path) {
-    use std::os::unix::io::AsRawFd;
-    if let Some(parent) = path.parent() {
-        if let Ok(d) = fs::File::open(parent) {
-            unsafe {
-                libc::fsync(d.as_raw_fd());
-            }
-        }
-    }
-}
-
 /// 暂存文件路径：与目标同目录（保证 rename 原子），带进程号避免冲突。
 fn staging_path(path: &Path) -> PathBuf {
     let mut s = path.as_os_str().to_string_lossy().into_owned();
@@ -339,8 +353,8 @@ pub(crate) fn replace_staged(path: &Path, data: &[u8], fault: &dyn FaultInjector
         fsync_file(&f)?;
         drop(f);
         fault.check(FaultPoint::Rename)?;
-        fs::rename(&tmp, path)?;
-        fsync_parent(path);
+        volume::replace_file(&tmp, path)?;
+        volume::fsync_parent(path);
         fault.check(FaultPoint::Readback)?;
         let rb = fs::read(path)?;
         if rb.len() != data.len() {
@@ -422,9 +436,14 @@ impl FingerprintRegistrar for DisabledFingerprintRegistrar {
     }
 }
 
-/// 安全弹出存储卡。
+/// 安全弹出存储卡（平台差异见 `eject_device`）。
 pub fn safe_eject(card: &CardInfo) -> Result<(), CameraError> {
-    let device = &card.device;
+    eject_device(&card.device)
+}
+
+/// macOS：`diskutil eject`。
+#[cfg(not(windows))]
+fn eject_device(device: &str) -> Result<(), CameraError> {
     let output = Command::new("diskutil")
         .args(["eject", device])
         .output()
@@ -435,6 +454,15 @@ pub fn safe_eject(card: &CardInfo) -> Result<(), CameraError> {
         return Err(CameraError::Command(format!("eject 失败: {stderr}")));
     }
     Ok(())
+}
+
+/// Windows：不执行程序化弹出。未提权时系统会拒绝，伪造成「已弹出」比不弹出更危险，
+/// 因此原样返回失败并引导用户使用系统的「弹出」，与安装完成提示同一套说明。
+#[cfg(windows)]
+fn eject_device(_device: &str) -> Result<(), CameraError> {
+    Err(CameraError::Command(
+        "Windows 未执行程序化弹出，请在「此电脑」中右键该卷选择「弹出」后再拔卡".into(),
+    ))
 }
 
 /// 读取当前相机卡上的 CC 表。
