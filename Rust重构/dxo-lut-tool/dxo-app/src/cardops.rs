@@ -54,7 +54,7 @@ pub struct CardItem {
     pub card_path: Option<String>,
     pub fp1: Option<u32>,
     pub fp5: Option<u32>,
-    /// 用户定的菜单替代名（仅 local 项）；None = 按库原始名推导。
+    /// 用户定的菜单替代名；None = 沿用卡上名称或按库原始名推导。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub menu_name: Option<String>,
 }
@@ -171,12 +171,10 @@ fn list_reply(plan: &CardPlan, profile: &lut_camera::CardProfile) -> serde_json:
                 "local_id": it.local_id, "card_path": it.card_path,
                 "fp1": it.fp1, "fp5": it.fp5, "menu_name": it.menu_name,
             });
-            if it.kind == "local" {
-                let src = it.menu_name.as_deref().unwrap_or(&it.name);
-                let (m, ok) = propose_menu_name(src);
-                v["menu"] = serde_json::json!(m);
-                v["menu_ok"] = serde_json::json!(ok);
-            }
+            let src = it.menu_name.as_deref().unwrap_or(&it.name);
+            let (m, ok) = propose_menu_name(src);
+            v["menu"] = serde_json::json!(m);
+            v["menu_ok"] = serde_json::json!(ok);
             v
         })
         .collect();
@@ -187,7 +185,8 @@ fn list_reply(plan: &CardPlan, profile: &lut_camera::CardProfile) -> serde_json:
         "n_slots": profile.n_slots,
         "max_slots": profile.max_slots,
         "issues": profile.issues,
-        "changed": { "add": add, "del": del, "order": order },
+        "changed": { "add": add, "del": del, "order": order,
+            "rename": plan.items.iter().filter(|it| it.kind == "card" && it.menu_name.as_ref().is_some_and(|n| n != &it.name)).count() },
         "preload": effective_preload(plan, profile),
         "gate_enabled": lut_camera::ensure_write_gate().is_ok(),
     })
@@ -359,38 +358,26 @@ fn op_set_preload(db: &Path, mount: &str, key: &str) -> Result<serde_json::Value
     Ok(list_reply(&plan, &profile))
 }
 
-/// 用户定菜单替代名（仅 local 项）：字模/≤6/重名校验；空串=清除替代名回退原始名推导。
+/// 用户定菜单替代名：字模/≤6/重名校验；空串=清除替代名回退原始名推导。
 /// 只存本地工作清单，不改库原始名；真实写入仍须写卡授权。
 fn op_set_menu_name(db: &Path, mount: &str, key: &str, name: &str) -> Result<serde_json::Value, String> {
     let (mut plan, profile, _) = load_or_init(db, mount)?;
     let i = plan.items.iter().position(|x| x.key == key).ok_or("该项不在卡清单中")?;
-    if plan.items[i].kind != "local" {
-        return Err("卡内档菜单名只读（由卡上 ph_menu 解码）".into());
-    }
     let up = name.trim().to_uppercase();
-    if up.is_empty() {
-        plan.items[i].menu_name = None;
-        save_plan(db, mount, &plan)?;
-        return Ok(list_reply(&plan, &profile));
-    }
-    let (menu, ok) = propose_menu_name(&up);
-    if !ok || menu != up {
+    let (menu, ok) = propose_menu_name(if up.is_empty() { &plan.items[i].name } else { &up });
+    if !up.is_empty() && (!ok || menu != up) {
         return Err(format!("菜单名不合规：字模限 {} 内 ≤6 字符", lut_camera::card::CHARSET));
     }
     for (j, it) in plan.items.iter().enumerate() {
         if j == i {
             continue;
         }
-        let other = if it.kind == "card" {
-            it.name.clone()
-        } else {
-            propose_menu_name(it.menu_name.as_deref().unwrap_or(&it.name)).0
-        };
-        if other == menu {
+        let other = propose_menu_name(it.menu_name.as_deref().unwrap_or(&it.name)).0;
+        if ok && other == menu {
             return Err(format!("菜单名重复：「{menu}」已被占用"));
         }
     }
-    plan.items[i].menu_name = Some(menu);
+    plan.items[i].menu_name = if up.is_empty() { None } else { Some(menu) };
     save_plan(db, mount, &plan)?;
     Ok(list_reply(&plan, &profile))
 }
@@ -457,19 +444,22 @@ fn collect_write(plan: &CardPlan, store: &Store, root: &Path) -> Result<WriteCol
     let mut seen_menu: HashSet<String> = HashSet::new();
     for it in &plan.items {
         if it.kind == "card" {
+            let (menu, menu_ok) = propose_menu_name(it.menu_name.as_deref().unwrap_or(&it.name));
             let fname = it.card_path.as_deref().unwrap_or("")
                 .rsplit(['\\', '/']).next().unwrap_or("").to_string();
             used.insert(fname.to_uppercase());
             c.rows.push(serde_json::json!({
-                "name": it.name, "action": "keep", "file": fname,
-                "menu_ok": true, "size": lut_camera::card::PKG_SIZE,
+                "name": it.name, "action": if menu != it.name { "rename" } else { "keep" }, "file": fname,
+                "menu_name": menu, "menu_ok": menu_ok, "size": lut_camera::card::PKG_SIZE,
             }));
-            if !seen_menu.insert(it.name.clone()) {
-                c.blocked.push(format!("菜单名重复：「{}」（内置重建器拒绝重名）", it.name));
+            if !menu_ok {
+                c.blocked.push(format!("「{}」菜单名不合规，需修改为字模内 ≤6 字符", it.menu_name.as_deref().unwrap_or(&it.name)));
+            } else if !seen_menu.insert(menu.clone()) {
+                c.blocked.push(format!("菜单名重复：「{menu}」（内置重建器拒绝重名）"));
             }
-            c.filters.push(serde_json::json!({ "name": it.name, "pkg": fname }));
+            c.filters.push(serde_json::json!({ "name": menu, "pkg": fname }));
             c.entries.push(lut_camera::rebuild::RebuildEntry {
-                name: it.name.clone(),
+                name: menu,
                 card_path: it.card_path.clone().unwrap_or_default(),
                 fp1: it.fp1.unwrap_or(0),
                 fp5: it.fp5.unwrap_or(0),
@@ -593,7 +583,7 @@ fn prepare_write(db: &Path, mount: &str) -> Result<PreparedWrite, String> {
         "ph_menu_action": "以卡上当前 ph_menu 为模板，由 app 内置重建器全量重建（MENU/CORE/STR 三段，其余段逐字节保留）",
         "touch_preview": touch_preview, "phls_preview": phls_preview,
         "items": c.rows, "blocked": c.blocked, "max_slots": profile.max_slots,
-        "preload": preload, "preload_name": plan.items.get(preload).map(|i| i.name.clone()),
+        "preload": preload, "preload_name": plan.items.get(preload).map(|i| i.menu_name.as_ref().unwrap_or(&i.name).clone()),
         "rebuild_preview": preview, "digest": digest, "files": targets,
         "rebuild_manifest": if c.blocked.is_empty() { serde_json::json!({ "filters": c.filters, "preload": preload }) } else { serde_json::Value::Null },
     });
@@ -935,11 +925,11 @@ mod tests {
         assert!(raw["menu_name"].is_null());
         let p = op_write_plan(db.path(), &mount).unwrap();
         assert!(!p["blocked"].as_array().unwrap().is_empty());
-        // 不合规 / 超长 / 重名 / 卡内档 均拒
+        // 不合规 / 超长 / 重名 / 不存在项均拒
         assert!(op_set_menu_name(db.path(), &mount, &key, "GOLD").is_err());
         assert!(op_set_menu_name(db.path(), &mount, &key, "TOOLONG").is_err());
         assert!(op_set_menu_name(db.path(), &mount, &key, "G200").is_err());
-        assert!(op_set_menu_name(db.path(), &mount, "card:00000011", "GOL2").is_err());
+        assert!(op_set_menu_name(db.path(), &mount, "card:deadbeef", "GOL2").is_err());
         assert!(op_set_menu_name(db.path(), &mount, "local:999", "GOL2").is_err());
         // 合规替代名（小写输入归一大写）清除 blocked，库原始名不变
         let v = op_set_menu_name(db.path(), &mount, &key, "gol2").unwrap();
@@ -956,6 +946,76 @@ mod tests {
         let raw = raw_of(&v);
         assert_eq!(raw["menu_ok"], false);
         assert!(raw["menu_name"].is_null());
+    }
+
+    #[test]
+    fn card_rename_persists_validates_and_confirmed_write_keeps_packages() {
+        let vol = sim_volume_full(&["ORIG", "GOL2"], 0);
+        let db = tempfile::tempdir().unwrap();
+        let mount = vol.path().to_string_lossy().to_string();
+        let initial = op_get(db.path(), &mount).unwrap();
+        let key = initial["items"][0]["key"].as_str().unwrap();
+        let other = initial["items"][1]["key"].as_str().unwrap();
+        let ph_before = std::fs::read(vol.path().join("ph_menu.bin")).unwrap();
+        let packages: Vec<_> = std::fs::read_dir(vol.path().join("DXO_FILTERS")).unwrap()
+            .map(|e| { let p = e.unwrap().path(); let bytes = std::fs::read(&p).unwrap(); (p, bytes) }).collect();
+        let v = op_set_menu_name(db.path(), &mount, key, " flat ").unwrap();
+        assert_eq!(v["items"][0]["menu"], "FLAT");
+        assert_eq!(v["items"][0]["name"], "ORIG");
+        assert_eq!(v["changed"]["rename"], 1);
+        let saved = std::fs::read(plan_path(db.path(), &mount)).unwrap();
+        for bad in ["GOL2", "GOLD", "FLAT 2", "中文", "TOOLONG"] {
+            assert!(op_set_menu_name(db.path(), &mount, key, bad).is_err(), "{bad}");
+            assert_eq!(std::fs::read(plan_path(db.path(), &mount)).unwrap(), saved);
+        }
+        let id = insert_local(db.path(), "VELVIA");
+        let local = format!("local:{id}");
+        op_append_local(db.path(), &mount, id).unwrap();
+        assert!(op_set_menu_name(db.path(), &mount, &local, "FLAT").is_err());
+        assert!(op_set_menu_name(db.path(), &mount, key, "VELVIA").is_err());
+        op_remove(db.path(), &mount, &local).unwrap();
+        op_set_menu_name(db.path(), &mount, other, "ORIG").unwrap();
+        // 清空替代名也要检查重名：原名已被其他项占用。
+        assert!(op_set_menu_name(db.path(), &mount, key, "").is_err());
+        op_set_menu_name(db.path(), &mount, other, "").unwrap();
+        let reset = op_set_menu_name(db.path(), &mount, key, "").unwrap();
+        assert_eq!(reset["items"][0]["menu"], "ORIG");
+        assert_eq!(reset["changed"]["rename"], 0);
+        op_set_menu_name(db.path(), &mount, key, "FLAT").unwrap();
+        let restored = op_get(db.path(), &mount).unwrap();
+        assert_eq!(restored["items"][0]["menu"], "FLAT");
+        assert_eq!(std::fs::read(vol.path().join("ph_menu.bin")).unwrap(), ph_before);
+        let plan = op_write_plan(db.path(), &mount).unwrap();
+        assert!(plan["blocked"].as_array().unwrap().is_empty());
+        assert_eq!(plan["items"][0]["action"], "rename");
+        assert_eq!(plan["items"][0]["menu_name"], "FLAT");
+        assert_eq!(plan["preload_name"], "FLAT");
+        assert_eq!(plan["rebuild_manifest"]["filters"][0]["name"], "FLAT");
+        assert_eq!(plan["files"].as_array().unwrap().len(), 2, "仅菜单和开机记忆，不重写滤镜包");
+        apply_confirmed(db.path(), &mount, plan["digest"].as_str().unwrap(), false).unwrap();
+        let profile = lut_camera::probe(vol.path()).unwrap();
+        assert_eq!(profile.entries[0].name, "FLAT");
+        assert_eq!(profile.entries[1].name, "GOL2");
+        assert_eq!(profile.preload, 0);
+        for (path, bytes) in packages { assert_eq!(std::fs::read(path).unwrap(), bytes); }
+        let fresh = op_get(db.path(), &mount).unwrap();
+        assert_eq!(fresh["items"][0]["name"], "FLAT");
+        assert!(fresh["items"][0]["menu_name"].is_null());
+        assert_eq!(fresh["changed"]["rename"], 0);
+    }
+
+    #[test]
+    fn card_rename_after_confirmation_requires_new_preview() {
+        let vol = sim_volume_full(&["ORIG", "GOL2"], 0);
+        let db = tempfile::tempdir().unwrap();
+        let mount = vol.path().to_string_lossy().to_string();
+        let initial = op_get(db.path(), &mount).unwrap();
+        let key = initial["items"][0]["key"].as_str().unwrap();
+        let plan = op_write_plan(db.path(), &mount).unwrap();
+        let before = std::fs::read(vol.path().join("ph_menu.bin")).unwrap();
+        op_set_menu_name(db.path(), &mount, key, "FLAT").unwrap();
+        assert!(apply_confirmed(db.path(), &mount, plan["digest"].as_str().unwrap(), false).unwrap_err().contains("已变化"));
+        assert_eq!(std::fs::read(vol.path().join("ph_menu.bin")).unwrap(), before);
     }
 
     #[test]

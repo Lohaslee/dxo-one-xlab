@@ -3506,6 +3506,7 @@ name = "lut-core"
 version = "0.1.0"
 dependencies = [
  "image 0.25.10",
+ "roxmltree",
 ]
 
 [[package]]

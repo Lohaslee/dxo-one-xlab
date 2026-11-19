@@ -1,7 +1,9 @@
 //! 异步预览服务：代次校验 + 缓存 + 取消，预览运算不在 UI 主循环。
 
+use base64::Engine as _;
 use image::ImageDecoder;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -25,6 +27,90 @@ pub struct PreviewState {
     pub img_version: AtomicU64,
     pub gen: AtomicU64,
     pub cache: Mutex<HashMap<String, PreviewPayload>>,
+}
+
+const SAVED_IMAGE: &str = "preview-image.json";
+
+#[derive(Serialize, Deserialize)]
+struct SavedImage {
+    label: String,
+    png: String,
+}
+
+impl PreviewState {
+    pub fn load(db_dir: &Path) -> Self {
+        let state = Self::default();
+        let _ = std::fs::remove_file(db_dir.join("preview-image.tmp"));
+        match restore_image(db_dir) {
+            Ok(im) => *state.img.lock().unwrap() = im,
+            Err(e) => crate::log_line(&format!("preview restore failed: {e}")),
+        }
+        state
+    }
+}
+
+fn restore_image(db_dir: &Path) -> Result<Option<PreviewImage>, String> {
+    use std::io::Read;
+    let file = match std::fs::File::open(db_dir.join(SAVED_IMAGE)) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    let mut bytes = Vec::new();
+    file.take(6 * 1024 * 1024 + 1).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    if bytes.len() > 6 * 1024 * 1024 { return Err("保存的预览图过大".into()); }
+    let saved: SavedImage = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    let png = base64::engine::general_purpose::STANDARD.decode(saved.png).map_err(|e| e.to_string())?;
+    decode_preview_image(&png, &saved.label).map(Some)
+}
+
+/// One lossless, oriented/downscaled copy with its display name; never retain originals.
+/// Hold the image lock across disk replacement so reset/selection cannot reorder writes.
+fn set_image(state: &PreviewState, db_dir: &Path, bytes: &[u8], label: &str) -> Result<(u32, u32, u64), String> {
+    use std::io::Write;
+    let im = decode_preview_image(bytes, label)?;
+    let (w, h) = (im.w, im.h);
+    let rgb = image::RgbImage::from_raw(w, h, im.rgb.clone()).ok_or("预览像素尺寸不匹配")?;
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgb8(rgb).write_to(&mut png, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+    let saved = SavedImage { label: label.into(), png: base64::engine::general_purpose::STANDARD.encode(png.into_inner()) };
+    let bytes = serde_json::to_vec(&saved).map_err(|e| e.to_string())?;
+    let mut guard = state.img.lock().unwrap();
+    std::fs::create_dir_all(db_dir).map_err(|e| format!("保存预览照片失败: {e}"))?;
+    let temp = db_dir.join("preview-image.tmp");
+    let target = db_dir.join(SAVED_IMAGE);
+    let write = (|| -> std::io::Result<()> {
+        let mut file = std::fs::File::create(&temp)?;
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+        drop(file);
+        lut_camera::volume::replace_file(&temp, &target)?;
+        lut_camera::volume::fsync_parent(&target);
+        Ok(())
+    })();
+    if let Err(e) = write {
+        let _ = std::fs::remove_file(&temp);
+        return Err(format!("保存预览照片失败: {e}"));
+    }
+    *guard = Some(im);
+    let version = state.img_version.fetch_add(1, Ordering::SeqCst) + 1;
+    cancel(state);
+    state.cache.lock().unwrap().clear();
+    Ok((w, h, version))
+}
+
+fn reset_image(state: &PreviewState, db_dir: &Path) -> Result<u64, String> {
+    let mut guard = state.img.lock().unwrap();
+    match std::fs::remove_file(db_dir.join(SAVED_IMAGE)) {
+        Ok(()) => lut_camera::volume::fsync_parent(&db_dir.join(SAVED_IMAGE)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {},
+        Err(e) => return Err(format!("清除预览照片失败: {e}")),
+    }
+    *guard = None;
+    let version = state.img_version.fetch_add(1, Ordering::SeqCst) + 1;
+    cancel(state);
+    state.cache.lock().unwrap().clear();
+    Ok(version)
 }
 
 #[derive(Serialize, Clone)]
@@ -369,20 +455,13 @@ pub fn preview_set_image_bytes(
     bytes: Vec<u8>,
     label: String,
 ) -> Result<serde_json::Value, String> {
-    let im = decode_preview_image(&bytes, &label)?;
-    let (w, h) = (im.w, im.h);
-    *state.img.lock().unwrap() = Some(im);
-    let version = state.img_version.fetch_add(1, Ordering::SeqCst) + 1;
-    state.cache.lock().unwrap().clear();
+    let (w, h, version) = set_image(&state, &lut_persist::Store::default_db_dir(), &bytes, &label)?;
     Ok(serde_json::json!({ "w": w, "h": h, "version": version }))
 }
 
 #[tauri::command]
-pub fn preview_reset_image(state: tauri::State<'_, PreviewState>) -> u64 {
-    *state.img.lock().unwrap() = None;
-    let version = state.img_version.fetch_add(1, Ordering::SeqCst) + 1;
-    state.cache.lock().unwrap().clear();
-    version
+pub fn preview_reset_image(state: tauri::State<'_, PreviewState>) -> Result<u64, String> {
+    reset_image(&state, &lut_persist::Store::default_db_dir())
 }
 
 #[tauri::command]
@@ -407,6 +486,69 @@ pub fn preview_image_info(state: tauri::State<'_, PreviewState>) -> serde_json::
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preview_photo_replaces_one_copy_restores_pixels_and_resets() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = include_bytes!("../tests/fixtures/portrait-exif6.jpg");
+        let second = include_bytes!("../tests/fixtures/portrait-plain.jpg");
+        let state = PreviewState::load(dir.path());
+        assert!(state.img.lock().unwrap().is_none());
+        set_image(&state, dir.path(), first, "first.jpg").unwrap();
+        let original = state.img.lock().unwrap().as_ref().unwrap().rgb.clone();
+        let saved_first = std::fs::read(dir.path().join(SAVED_IMAGE)).unwrap();
+        drop(state);
+        let restored = PreviewState::load(dir.path());
+        {
+            let guard = restored.img.lock().unwrap();
+            let im = guard.as_ref().unwrap();
+            assert_eq!((im.w, im.h), (60, 80)); // EXIF orientation is baked once.
+            assert_eq!(im.label, "first.jpg");
+            assert_eq!(im.rgb, original); // Lossless: restarting must not alter preview colors.
+        }
+        assert!(set_image(&restored, dir.path(), b"not an image", "bad.jpg").is_err());
+        assert_eq!(std::fs::read(dir.path().join(SAVED_IMAGE)).unwrap(), saved_first);
+        assert_eq!(restored.img.lock().unwrap().as_ref().unwrap().label, "first.jpg");
+        set_image(&restored, dir.path(), second, "second.jpg").unwrap();
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+        assert_ne!(std::fs::read(dir.path().join(SAVED_IMAGE)).unwrap(), saved_first);
+        assert_eq!(PreviewState::load(dir.path()).img.lock().unwrap().as_ref().unwrap().label, "second.jpg");
+        reset_image(&restored, dir.path()).unwrap();
+        assert!(PreviewState::load(dir.path()).img.lock().unwrap().is_none());
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+        reset_image(&restored, dir.path()).unwrap(); // Already on chart is harmless.
+    }
+
+    #[test]
+    fn preview_photo_failed_write_and_reset_preserve_current_image() {
+        let dir = tempfile::tempdir().unwrap();
+        let bytes = include_bytes!("../tests/fixtures/portrait-plain.jpg");
+        let state = PreviewState::default();
+        set_image(&state, dir.path(), bytes, "old.jpg").unwrap();
+        let version = state.img_version.load(Ordering::SeqCst);
+        // Occupied staging path simulates a failed write, without permission assumptions.
+        std::fs::create_dir(dir.path().join("preview-image.tmp")).unwrap();
+        assert!(set_image(&state, dir.path(), bytes, "new.jpg").is_err());
+        assert_eq!(state.img_version.load(Ordering::SeqCst), version);
+        assert_eq!(state.img.lock().unwrap().as_ref().unwrap().label, "old.jpg");
+        assert_eq!(PreviewState::load(dir.path()).img.lock().unwrap().as_ref().unwrap().label, "old.jpg");
+        std::fs::remove_file(dir.path().join(SAVED_IMAGE)).unwrap();
+        std::fs::create_dir(dir.path().join(SAVED_IMAGE)).unwrap();
+        assert!(reset_image(&state, dir.path()).is_err());
+        assert_eq!(state.img.lock().unwrap().as_ref().unwrap().label, "old.jpg");
+    }
+
+    #[test]
+    fn preview_photo_corruption_falls_back_to_chart_and_cleans_staging() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(SAVED_IMAGE), b"broken").unwrap();
+        std::fs::write(dir.path().join("preview-image.tmp"), b"interrupted write").unwrap();
+        let state = PreviewState::load(dir.path());
+        assert!(state.img.lock().unwrap().is_none());
+        assert!(!dir.path().join("preview-image.tmp").exists());
+        set_image(&state, dir.path(), include_bytes!("../tests/fixtures/portrait-plain.jpg"), "recovered.jpg").unwrap();
+        assert_eq!(PreviewState::load(dir.path()).img.lock().unwrap().as_ref().unwrap().label, "recovered.jpg");
+    }
 
     #[test]
     fn test_local_preview_matches_saved_and_packed_table() {

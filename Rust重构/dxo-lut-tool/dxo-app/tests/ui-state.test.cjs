@@ -47,10 +47,10 @@ function setup() {
     }
   };
   vm.createContext(ctx);
-  vm.runInContext(section('  function hash32(', '  function dispName(')
+  vm.runInContext(section('  function hash32(', '  function renderLib(')
     + section('  var editQueue =', '  // ── 库渲染')
     + section('  function renderSelection()', '  async function applyOrder')
-    + section('  // 输入当下绑定', "  $('fname').addEventListener")
+    + section('  // 输入当下绑定', "  document.querySelectorAll('input[name=tone]')")
     + section('  async function loadLuts()', '  // ── 回收站'), ctx);
   return { ctx, saved, pending, calls, el };
 }
@@ -273,10 +273,10 @@ test('completion dialog preserves warnings and stays visible until acknowledged'
   assert.match(el('patch-success-warning').textContent, /安全弹出/);
   el('patch-success-close').handlers.click(); assert.equal(el('patch-success').open, false);
 });
-test('camera name saves uppercase to card plan without writing card; invalid or duplicate names preserve saved value', async () => {
+for (const key of ['local:1', 'card:00000011']) test(`camera name ${key} saves uppercase without writing card; invalid or duplicate names preserve saved value`, async () => {
   const { ctx, calls } = setup();
   ctx.MENU_CHARSET = '-025ABEFGHIKLNOPRSTUVWY';
-  ctx.state.tf = { items: [{ key: 'local:1', menu: 'FLAT' }] };
+  ctx.state.tf = { items: [{ key, menu: 'FLAT' }] };
   ctx.afterTfChange = () => {};
   vm.runInContext(section('  var cardQueue =', '  function afterTfChange('), ctx);
   ctx.hook = async (cmd, args) => {
@@ -286,16 +286,39 @@ test('camera name saves uppercase to card plan without writing card; invalid or 
     }
   };
   const input = { value: ' fuyuno ' };
-  await ctx.tfSetMenuName('local:1', input);
+  await ctx.tfSetMenuName(key, input);
   assert.equal(ctx.state.tf.items[0].menu, 'FUYUNO');
-  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [{ command: 'card_list_set_menu_name', args: { mount: '/card-A', key: 'local:1', name: 'FUYUNO' } }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [{ command: 'card_list_set_menu_name', args: { mount: '/card-A', key, name: 'FUYUNO' } }]);
   for (const invalid of ['GOLD', '中文', 'FLAT 2', 'FUYUNOO']) {
-    input.value = invalid; await ctx.tfSetMenuName('local:1', input);
+    input.value = invalid; await ctx.tfSetMenuName(key, input);
     assert.equal(input.value, 'FUYUNO');
   }
   assert.equal(calls.length, 1);
-  input.value = 'B-W'; await ctx.tfSetMenuName('local:1', input);
+  input.value = 'B-W'; await ctx.tfSetMenuName(key, input);
   assert.equal(input.value, 'FUYUNO'); assert.equal(ctx.state.tf.items[0].menu, 'FUYUNO');
+});
+
+test('existing card filters render editable names and confirmation shows exact rename', async () => {
+  const { ctx, el } = setup();
+  ctx.hex8 = n => n.toString(16);
+  ctx.state.tf = { items: [
+    { key: 'card:11', kind: 'card', name: 'ORIG', menu: 'FLAT', menu_name: 'FLAT', fp1: 17 },
+    { key: 'card:12', kind: 'card', name: 'GOL2', menu: 'GOL2', fp1: 18 }
+  ], max_slots: 19, changed: {} };
+  ctx.pad2 = n => String(n).padStart(2, '0');
+  el('tf-list').querySelectorAll = () => [];
+  vm.runInContext(section('  var MENU_CHARSET =', '  var cardQueue ='), ctx);
+  ctx.renderTf();
+  assert.equal((el('tf-list').innerHTML.match(/class="tf-menu"/g) || []).length, 2);
+  assert.match(el('tf-list').innerHTML, /id="camera-name-0"[^>]*value="FLAT"/);
+  assert.match(el('tf-list').innerHTML, /id="camera-name-1"[^>]*value="GOL2"/);
+  assert.match(el('tf-list').innerHTML, /改名待写入/);
+  writeHandlers(ctx);
+  const confirming = ctx.confirmWrite({ items: [{ action: 'rename', name: 'ORIG', menu_name: 'FLAT' }], files: [] }, '/card-A');
+  assert.match(el('write-confirm-summary').textContent, /改名 1 档/);
+  assert.match(el('write-confirm-files').innerHTML, /ORIG → FLAT/);
+  el('write-confirm').close('cancel');
+  assert.equal(await confirming, false);
 });
 
 const patchInfoHook = (ctx, hint) => {
@@ -322,4 +345,26 @@ test('patch page adopts the system eject wording per platform', async () => {
   await mac.ctx.loadPatchInfo();
   assert.match(mac.el('patch-eject-note').textContent, /完成后在访达中安全推出存储卡，再装回相机/);
   assert.match(mac.el('patch-success-eject').textContent, /^先在访达中安全推出存储卡，再拔卡。$/);
+});
+
+test('XMP import exposes approximation and omitted settings as warnings', async () => {
+  const { ctx } = setup();
+  const logs = [], toasts = [];
+  ctx.state.cardMount = null;
+  ctx.log = (level, text) => logs.push({ level, text });
+  ctx.toast = text => toasts.push(text);
+  ctx.loadLuts = async () => {};
+  vm.runInContext(section('  async function handleResults(', '  var picking = false;'), ctx);
+  await ctx.handleResults([{ file: 'COLOR.XMP', ok: true, msg: 'XMP 近似；未转换: Temperature' },
+    { file: 'bad.xmp', ok: false, msg: 'XML 无效' }]);
+  assert.equal(logs[0].level, 'WARN');
+  assert.match(logs[0].text, /Temperature/);
+  assert.equal(logs[1].level, 'FAIL');
+  assert.equal(logs[2].level, 'WARN');
+  assert.match(toasts[0], /近似.*预览/);
+  logs.length = toasts.length = 0;
+  await ctx.handleResults([{ file: 'normal.cube', ok: true, msg: '导入成功' }]);
+  assert.equal(logs[0].level, 'OK');
+  assert.equal(logs[1].level, 'OK');
+  assert.equal(toasts.length, 0);
 });

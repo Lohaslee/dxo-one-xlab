@@ -303,6 +303,17 @@ h3 { font-size: 16px; line-height: 1.3; letter-spacing: .01em; }
 .def-badge { position: absolute; top: -2px; left: 0; z-index: 1; pointer-events: none;
   background: var(--accent); color: var(--bg); border: 2px solid var(--accent);
   font: 10px/1.2 var(--font-mono); letter-spacing: .1em; padding: 2px 6px; }
+/* 库条目保持紧凑：名称和参数在左，操作在右；仅极窄列表换行。 */
+#lib-list .log-row { grid-template-columns: 18px minmax(0, 1fr) auto; gap: 6px; padding: 8px 6px; }
+#lib-list .item-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+#lib-list .cur-badge { position: static; padding: 1px 4px; font-size: 9px; letter-spacing: 0; }
+#lib-list .ops { grid-column: 3; gap: 2px; flex-wrap: nowrap; justify-content: flex-end; }
+#lib-list .ops .btn { padding: 3px 5px; }
+#lib-list .ops .pill { padding: 3px 6px; font-size: 10px; }
+@container (max-width: 360px) {
+  #lib-list .log-row { grid-template-columns: 18px minmax(0, 1fr); row-gap: 4px; }
+  #lib-list .ops { grid-column: 2; flex-wrap: wrap; }
+}
 /* F-15 toast：硬边白底 / 警示琥珀，自动消失；reduce-motion 全局关动画 */
 #toasts { position: fixed; left: 50%; bottom: calc(var(--statusbar-h) + 14px); transform: translateX(-50%);
   z-index: 60; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
@@ -861,24 +872,18 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
               <div class="pane-head">
                 <span class="eyebrow role-in">EDIT / 编辑区</span>
                 <h2>导入滤镜</h2>
-                <p class="meta">把 <span class="num">.cube</span> 转成相机 CC 表（2³–256³ → 16³），选择后立即入库。</p>
+                <p class="meta">支持 LUT、Hald 图和 XMP 预设，转换为相机 CC 表后入库。XMP 为近似效果，导入后请先预览。</p>
               </div>
-              <div class="drop" id="drop" title="支持 .cube / .3dl / .csp / Hald 图像（png/jpg/tif）；从 Finder 拖入或点击选择，逐文件报告结果">
-                <h3>拖入 .cube，或点击选择</h3>
+              <div class="drop" id="drop" title="支持 .cube / .3dl / .csp / .xmp（近似）/ Hald 图像（png/jpg/tif）；从 Finder 拖入或点击选择，逐文件报告结果">
+                <h3>拖入滤镜文件，或点击选择</h3>
                 <button class="btn btn-primary btn-arrow ic-import" id="btn-pick" type="button">选择 LUT 文件</button>
               </div>
-              <input type="file" id="lut-file" multiple accept=".cube,.3dl,.csp,.png,.jpg,.jpeg,.tif,.tiff" hidden>
+              <input type="file" id="lut-file" multiple accept=".cube,.3dl,.csp,.xmp,.png,.jpg,.jpeg,.tif,.tiff" hidden>
 <div id="toasts" aria-live="polite"></div>
               <div class="pane-section" id="editor-sec" title="参数作用于当前选中项，保存后入库；「存为默认」复制选中项参数，仅影响之后导入的新文件（本次会话）">
                 <div class="sec-head sec-head--stack">
                   <span class="cap">参数 / PARAMETERS · 选中项</span>
                   <span class="meta" id="def-line">导入默认 —</span>
-                </div>
-                <div class="field">
-                  <label for="fname">预览备注 / PREVIEW NOTE</label>
-                  <input type="text" id="fname" disabled placeholder="英文或数字，最多 64 字符" aria-describedby="fname-help"
-                    title="仅本次预览使用，不改变滤镜原名或相机名称">
-                  <p class="meta" id="fname-help">仅本次预览使用。要改相机里的名称，请加入卡清单后，在右侧「相机名称」中设置。<a href="#tf-sec">前往卡内清单 →</a></p>
                 </div>
                 <div class="row-2">
                   <div class="field">
@@ -917,6 +922,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
                       title="展开/收起回收站（可恢复）；永久删除需二次确认">回收站</button>
                   </span>
                 </div>
+                <p class="meta" id="lib-name-help">修改相机名称：插入存储卡，点击滤镜旁的「加入卡清单」，再到右侧「相机名称」修改。写入存储卡后生效。<a href="#tf-sec">前往卡内清单 →</a></p>
                 <div class="log-list" id="lib-list"></div>
               </div>
               <div class="pane-section" id="trash-sec" hidden>
@@ -964,8 +970,8 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
               </div>
               </div>
               <div style="display:flex;gap:var(--gap-xs);flex-wrap:wrap;align-items:center;margin-top:var(--gap-sm)">
-                <button class="btn btn-secondary btn--sm ic-photo" id="pv-pick" type="button">选择预览照片</button>
-                <button class="btn btn-secondary btn--sm ic-reset" id="pv-reset" type="button">重置色卡</button>
+                <button class="btn btn-secondary btn--sm ic-photo" id="pv-pick" type="button" title="自动保存最后一张预览照片，下次打开继续使用；更换时替换旧照片">选择预览照片</button>
+                <button class="btn btn-secondary btn--sm ic-reset" id="pv-reset" type="button" title="清除已保存的预览照片，恢复内置色卡">重置色卡</button>
                 <input type="file" id="pv-file" accept="image/*" hidden>
                 <span class="meta" id="pv-img-label">内置色卡</span>
               </div>
@@ -999,9 +1005,8 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
                   </span>
                 </div>
                 <div class="name-help" id="tf-name-help">
-                  <p class="meta">相机里显示什么名称？插入存储卡 → 从左侧加入卡清单 → 修改下方「相机名称」→ 写入存储卡。</p>
                   <p class="meta">最多 6 个字符，小写会转为大写。可用字母 <code>ABEFGHIKLNOPRSTUVWY</code>、数字 <code>0 2 5</code> 和 <code>-</code>，例如 <code>FLAT</code>、<code>B-W</code>。</p>
-                  <p class="meta">修改后按 Enter 或点到别处保存；完成写卡后才在相机上生效。原有卡内滤镜的名称暂为只读。</p>
+                  <p class="meta">新加入和卡上已有滤镜都可改名，名称不能重复。按 Enter 或点到别处保存，完成写卡后在相机上生效。</p>
                 </div>
                 <div class="log-list" id="tf-list"></div>
                 <p class="meta" id="tf-note" style="margin-top:var(--gap-xs)">工作清单：增删 / 排序即时存于本地，不写卡；卡上 ph_menu 变化时自动按卡重建。ph_menu 由 app 内置重建器生成（以卡上当前 ph_menu 为模板）；真实写卡须在 App 内确认本次变更。</p>
@@ -1119,38 +1124,6 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
                 <p class="lead">感谢 <strong>@林达</strong> 创作的 DxO ONE v26 触屏固件，为本项目提供了触屏交互基础。</p>
                 <p class="meta">同时感谢 Eli 完成 iOS / Lightning 固件移植。触屏运行时依赖的权利归原作者，来源与说明可在「更新补丁」中查看。</p>
               </div>
-              <div class="pane-section" id="about-share">
-                <div class="cap">分享 / SHARE · 发文素材</div>
-                <p class="lead" style="margin-bottom:var(--gap-sm)">给想帮忙转发的人准备的一份草稿与配图。文案与图片均为项目真实素材，可自行取用。</p>
-                <div class="share-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
-                  <a href="xhs-assets/02-velvia-comparison.png" target="_blank" title="封面 · VELVIA 效果对比"><img src="xhs-assets/02-velvia-comparison.png" alt="VELVIA 效果对比" style="width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);display:block"></a>
-                  <a href="xhs-assets/01-menu-ten-filters.png" target="_blank" title="机内十档菜单"><img src="xhs-assets/01-menu-ten-filters.png" alt="机内十档菜单" style="width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);display:block"></a>
-                  <a href="xhs-assets/03-app-import.png" target="_blank" title="桌面 App · 导入"><img src="xhs-assets/03-app-import.png" alt="桌面 App 导入页" style="width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);display:block"></a>
-                  <a href="xhs-assets/04-app-about.png" target="_blank" title="桌面 App · 关于"><img src="xhs-assets/04-app-about.png" alt="桌面 App 关于页" style="width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);display:block"></a>
-                </div>
-                <p class="meta" style="margin:8px 0">点击图片查看原图 · 顺序：01 封面 / 02 菜单 / 03 导入 / 04 关于</p>
-                <details style="border:1px solid var(--border);padding:8px 10px">
-                  <summary class="meta" style="cursor:pointer;color:var(--accent)">展开发文文案</summary>
-                  <p class="lead" style="margin-top:10px;white-space:pre-wrap">我的随身机是 DxO ONE——插在手机上、1 英寸底的小相机。画质很好，但厂商早就不更新了，机内滤镜就固定那几档，用久了会腻。
-
-于是自己动手做了个桌面端工具，0.1 版刚能用。
-
-它能做什么：
-· 把 .cube / .3dl / .csp 或 Hald 图导进来，调好强度存进本地滤镜库
-· 左边原图右边效果，对比满意了再说
-· 管理卡里的滤镜清单，切档后开机会记住上次的选择
-· 补丁安装也做进去了：写卡前只读预检、核对目标、本地备份、写完回读校验，照片不动
-
-机内现在有 11 档（含原片直出），从 Velvia、Portra 这类色彩风格到高反差黑白都有。都是拿现成风格源做的复合，不是仪器校准的“复刻”，图个好玩。
-
-目前 Mac（Apple Silicon）验证过，走源码构建；Windows 还在适配。签名安装包也还没做，愿意折腾的可以试试。
-
-一个人慢慢磨的东西，肯定不完美。但让一台停产的老相机继续有意思，这件事本身挺让我高兴的。
-
-#DxOONE #胶片滤镜 #独立开发 #摄影器材 #老相机 #数码摄影</p>
-                </details>
-                <p class="meta" style="margin-top:8px">完整预览（含复制按钮）：<a href="xhs-preview.html" target="_blank" style="color:var(--accent);text-decoration:underline">打开 xhs-preview.html</a></p>
-              </div>
             </div>
             <div class="pane pane-result">
               <div class="pane-head">
@@ -1200,7 +1173,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
                 <div class="cap">流程一 / 导入滤镜</div>
                 <div class="guide-step">
                   <span class="sn">1</span>
-                  <div><h3>选择滤镜文件</h3><p>在「导入滤镜」页，把 <span class="k">.cube / .3dl / .csp</span> 或 Hald 图像拖入，或点击「选择 LUT 文件」。支持多选，逐文件报告结果。</p></div>
+                  <div><h3>选择滤镜文件</h3><p>在「导入滤镜」页，把 <span class="k">.cube / .3dl / .csp / .xmp</span> 或 Hald 图像拖入，或点击「选择 LUT 文件」。支持多选，逐文件报告结果。XMP 仅近似转换全局调色，未转换项见结果日志，不等同于 Adobe 原效果。</p></div>
                 </div>
                 <div class="guide-step">
                   <span class="sn">2</span>
@@ -1434,8 +1407,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
     trash: [], showTrash: false,
     pendingClose: false,
     card: null, info: null, log: [], patchModel: null,
-    cards: [], cardMount: null, tf: null,   // TF 卡区域：卷列表 / 所选挂载点 / 卡内工作清单
-    disp: {}                             // 会话级显示名覆盖（id→名）；库/卡清单原始名不变
+    cards: [], cardMount: null, tf: null    // TF 卡区域：卷列表 / 所选挂载点 / 卡内工作清单
   };
 
   function esc(s) {
@@ -1557,31 +1529,27 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
       if (lr) return lr;                       // 待写入档：预览/编辑走本地库
     }
     return {                                    // 卡上既有档：只读合成记录（Still1 表直出）
-      id: state.sel.num, key: it.key, card: true, locked: true, name: it.name,
+      id: state.sel.num, key: it.key, card: true, locked: true, name: it.menu || it.name,
       tone: 'pass', strength: 1, bw: false, source_size: 16, format: 'bin',
       srcPath: it.card_path, local_id: it.local_id, src: 'TF 卡', export: false, position: 0,
       hash: it.fp1 != null ? hex8(it.fp1) : '00000000'
     };
-  }
-  function dispName(r) {
-    if (!r) return '';
-    return (!r.card && state.disp[r.id]) || r.name;
   }
   function renderLib() {
     var box = $('lib-list');
     var focusId = (document.activeElement && document.activeElement.classList
       && document.activeElement.classList.contains('log-row')) ? document.activeElement.dataset.id : null;
     if (!state.luts.length) {
-      box.innerHTML = '<div class="empty-box"><p class="meta">库为空 —— 拖入或点击「选择 LUT 文件」导入 .cube / .3dl / .csp / Hald 图像。</p></div>';
+      box.innerHTML = '<div class="empty-box"><p class="meta">库为空 —— 拖入或点击「选择 LUT 文件」导入 .cube / .3dl / .csp / .xmp（近似）/ Hald 图像。</p></div>';
     } else {
       box.innerHTML = state.luts.map(function (r) {
         var sub = r.source_size + '³ · ' + toneLabel(r.tone) + ' · ' + r.strength.toFixed(2)
-          + (r.bw ? ' · 黑白' : '') + (r.locked ? ' · 卡载锁定' : '');
+          + (r.bw ? ' · 黑白' : '') + (r.format === 'xmp' ? ' · XMP 近似' : '') + (r.locked ? ' · 卡载锁定' : '');
         var selCls = (state.sel && state.sel.kind === 'local' && state.sel.id === r.id) ? ' log-row--selected' : '';
         var inCard = !!(state.tf && (state.tf.items || []).some(function (x) { return x.local_id === r.id; }));
         return '<div class="log-row' + selCls + '" data-id="' + r.id + '" tabindex="0" role="button" draggable="true" aria-label="选择 ' + esc(r.name) + '">'
-          + '<span class="cur-badge"' + (selCls ? '' : ' hidden') + '>当前滤镜</span>'
-          + '<div><div class="title">' + esc(r.name) + '</div><div class="sub">' + esc(sub) + '</div></div>'
+          + '<div><div class="item-title"><span class="title">' + esc(r.name) + '</span>'
+          + '<span class="cur-badge"' + (selCls ? '' : ' hidden') + '>当前滤镜</span></div><div class="sub">' + esc(sub) + '</div></div>'
           + '<div class="ops">'
           + '<button class="btn btn-ghost btn--sm mv-up" type="button" title="上移（键盘替代：聚焦后 Alt+↑）">↑</button>'
           + '<button class="btn btn-ghost btn--sm mv-down" type="button" title="下移（键盘替代：聚焦后 Alt+↓）">↓</button>'
@@ -1645,7 +1613,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
   async function select(id) {
     if ((!state.sel || state.sel.kind !== 'local' || state.sel.id !== id) && !await flushNow()) return;
     state.sel = { kind: 'local', id: id, num: id };
-    renderSelection(); renderCard(); syncEditor(true);
+    renderSelection(); renderCard(); syncEditor();
     requestPreview();
   }
   async function selectCard(key) {
@@ -1653,7 +1621,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
     if (!it) return;
     if ((!state.sel || state.sel.kind !== 'card' || state.sel.key !== key) && !await flushNow()) return;
     state.sel = { kind: 'card', key: key, num: it.local_id != null ? it.local_id : cardNum(key) };
-    renderSelection(); renderCard(); syncEditor(true);
+    renderSelection(); renderCard(); syncEditor();
     requestPreview();
   }
   async function applyOrder(ids) {
@@ -1717,8 +1685,9 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
       if (ch.add) diffs.push('+' + ch.add);
       if (ch.del) diffs.push('−' + ch.del);
       if (ch.order) diffs.push('序变');
+      if (ch.rename) diffs.push('改名 ' + ch.rename);
       if (diffs.length) parts.push('变更 ' + diffs.join(' '));
-      if (tf.items[tf.preload]) parts.push('默认 ' + tf.items[tf.preload].name);
+      if (tf.items[tf.preload]) parts.push('默认 ' + (tf.items[tf.preload].menu || tf.items[tf.preload].name));
       parts.push('写入前需本次确认');
       st.textContent = parts.join(' · ');
     }
@@ -1726,15 +1695,15 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
     var r = selected();
     if (!r) { cur.textContent = '未选中滤镜 · 点击库行或卡清单行查看'; return; }
     if (r.card) {
-      cur.textContent = '当前滤镜 ' + dispName(r) + ' · 卡内只读 · FP ' + r.hash + ' · 参数固定（直出 1.00）';
+      cur.textContent = '当前滤镜 ' + r.name + ' · 卡内 · FP ' + r.hash + ' · 参数固定（直出 1.00），名称可在下方修改';
       return;
     }
-    var params = r.source_size + '³ ' + r.format.toUpperCase() + ' · ' + toneLabel(r.tone) + ' · '
+    var params = r.source_size + '³ ' + r.format.toUpperCase() + (r.format === 'xmp' ? ' 近似' : '') + ' · ' + toneLabel(r.tone) + ' · '
       + r.strength.toFixed(2) + ' · ' + (r.bw ? '黑白' : '彩色')
       + (state.dirty.has(r.id) ? ' · 未保存' : '');
     var sha = (state.dirty.has(r.id) && r.pendingHash) ? r.pendingHash : r.hash;
     var inTf = tf && (tf.items || []).some(function (x) { return x.local_id === r.id; });
-    cur.textContent = '当前滤镜 ' + dispName(r) + ' / ' + pad2(r.position + 1) + ' · ' + params
+    cur.textContent = '当前滤镜 ' + r.name + ' / ' + pad2(r.position + 1) + ' · ' + params
       + ' · SHA ' + sha.slice(0, 16) + '…' + (inTf ? ' · 已在卡清单' : '');
   }
   function renderRing() {
@@ -1862,17 +1831,15 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
     }, 2600);
   }
 
-  // ── 参数编辑器（作用于选中项；锁定项仅可重命名） ──
+  // ── 参数编辑器（作用于选中项；锁定项只读） ──
   function renderDefLine() {
     var d = state.defaults;
     $('def-line').textContent = '导入默认 ' + toneLabel(d.tone) + ' · ' + d.strength.toFixed(2)
       + ' · ' + (d.bw ? '黑白' : '彩色') + '（仅本会话）';
   }
-  function syncEditor(force) {
+  function syncEditor() {
     var r = selected();
     var locked = !!(r && r.locked);
-    $('fname').disabled = !r || !!r.card;
-    if (r && (force || document.activeElement !== $('fname'))) $('fname').value = dispName(r);
     document.querySelectorAll('input[name=tone]').forEach(function (x) {
       x.disabled = !r || locked;
       x.checked = !!r && x.value === r.tone;
@@ -1912,20 +1879,6 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
       }
     });
   }
-  $('fname').addEventListener('input', function () {
-    var r = selected();
-    if (!r || r.card) return;
-    var raw = this.value;
-    var clean = raw.replace(/[^A-Za-z0-9]/g, '');
-    if (clean !== raw) toast('自定义名仅允许英文与数字，其它字符已过滤', 'warn');
-    if (clean.length > 64) { clean = clean.slice(0, 64); toast('自定义名最长 64 字符，超出已截断', 'warn'); }
-    if (!clean) { clean = dispName(r); toast('名称不能为空，已保留原显示名', 'warn'); }
-    if (clean !== raw) this.value = clean;
-    // 只改会话级显示名：库列表 / 卡清单保留原始名，也不触发后端改名
-    if (clean === r.name) delete state.disp[r.id];
-    else state.disp[r.id] = clean;
-    renderCard();
-  });
   document.querySelectorAll('input[name=tone]').forEach(function (x) {
     x.addEventListener('change', function () {
       var r = selected();
@@ -2051,18 +2004,17 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
     box.innerHTML = tf.items.map(function (it, idx) {
       var isSel = state.sel && state.sel.kind === 'card' && state.sel.key === it.key;
       var isDef = tf.preload === idx;
-      var sub = it.kind === 'card' ? '卡内 · FP ' + hex8(it.fp1) : '待写入 · 本地库 #' + it.local_id;
-      var menuHtml = '';
-      if (it.kind === 'local') {
-        var mok = it.menu_ok !== false;
-        menuHtml = '<div class="menu-edit"><label class="menu-lab" for="camera-name-' + it.local_id + '">相机名称</label>'
-          + '<input class="tf-menu' + (mok ? '' : ' tf-menu--bad') + '" id="camera-name-' + it.local_id + '" type="text" maxlength="6" value="' + esc(it.menu || '') + '" placeholder="如 FLAT" data-key="' + esc(it.key) + '" aria-label="相机名称 ' + esc(it.name) + '" aria-describedby="tf-name-help" title="直接修改，按 Enter 或点到别处保存；写入存储卡后生效">'
-          + (mok ? '' : '<button class="btn btn--sm tf-menu-use" type="button"' + (it.menu ? '' : ' disabled') + '>使用此简称</button><span class="menu-bad">原名无法在相机上显示。请确认此简称，或修改后按 Enter。</span>') + '</div>';
-      }
-      return '<div class="log-row' + (isSel ? ' log-row--selected' : '') + (isDef ? ' log-row--default' : '') + '" data-key="' + esc(it.key) + '" tabindex="0" role="button" draggable="true" aria-label="选择卡内滤镜 ' + esc(it.name) + '">'
+      var renamed = it.kind === 'card' && it.menu_name && it.menu_name !== it.name;
+      var title = it.kind === 'card' ? (it.menu || it.name) : it.name;
+      var sub = it.kind === 'card' ? '卡内' + (renamed ? ' · 改名待写入' : '') + ' · FP ' + hex8(it.fp1) : '待写入 · 本地库 #' + it.local_id;
+      var mok = it.menu_ok !== false;
+      var menuHtml = '<div class="menu-edit"><label class="menu-lab" for="camera-name-' + idx + '">相机名称</label>'
+        + '<input class="tf-menu' + (mok ? '' : ' tf-menu--bad') + '" id="camera-name-' + idx + '" type="text" maxlength="6" value="' + esc(it.menu || '') + '" placeholder="如 FLAT" data-key="' + esc(it.key) + '" aria-label="相机名称 ' + esc(title) + '" aria-describedby="tf-name-help" title="直接修改，按 Enter 或点到别处保存；写入存储卡后生效">'
+        + (mok ? '' : '<button class="btn btn--sm tf-menu-use" type="button"' + (it.menu ? '' : ' disabled') + '>使用此简称</button><span class="menu-bad">原名无法在相机上显示。请确认此简称，或修改后按 Enter。</span>') + '</div>';
+      return '<div class="log-row' + (isSel ? ' log-row--selected' : '') + (isDef ? ' log-row--default' : '') + '" data-key="' + esc(it.key) + '" tabindex="0" role="button" draggable="true" aria-label="选择卡内滤镜 ' + esc(title) + '">'
         + '<span class="cur-badge"' + (isSel ? '' : ' hidden') + '>当前滤镜</span>'
         + (isDef ? '<span class="def-badge">默认</span>' : '')
-        + '<div><div class="title">' + esc(it.name) + '</div><div class="sub">' + esc(sub) + '</div>' + menuHtml + '</div>'
+        + '<div><div class="title">' + esc(title) + '</div><div class="sub">' + esc(sub) + '</div>' + menuHtml + '</div>'
         + '<div class="ops">'
         + '<button class="btn btn-ghost btn--sm tf-def" type="button" aria-label="设 ' + esc(it.name) + ' 为开机默认" title="' + (isDef ? '当前开机默认（本地工作清单）' : '设为开机默认（存本地工作清单；真实写入须在 App 内确认）') + '">' + (isDef ? '★' : '☆') + '</button>'
         + '<button class="btn btn-ghost btn--sm tf-up" type="button" title="上移（即时生效，存本地工作清单；键盘替代：聚焦后 Alt+↑）">↑</button>'
@@ -2150,7 +2102,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
   function afterTfChange(msg) {
     if (state.sel && state.sel.kind === 'card'
       && !(state.tf.items || []).some(function (x) { return x.key === state.sel.key; })) state.sel = null;
-    renderTf(); renderLib(); renderRing(); renderCard(); syncEditor(true); requestPreview();
+    renderTf(); renderLib(); renderRing(); renderCard(); syncEditor(); requestPreview();
     if (msg) log('OK', msg);
   }
   async function tfReorder(keys) {
@@ -2243,7 +2195,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
       log('INFO', '写入预演（只读，不写卡）：' + p.items.length + ' 档 · ' + p.ph_menu_action);
       p.items.forEach(function (r) {
         log(r.action === 'keep' ? 'INFO' : (r.menu_ok ? 'OK' : 'WARN'),
-          (r.action === 'keep' ? '保留 ' : '新增 ') + r.name + ' → ' + r.file
+          (r.action === 'keep' ? '保留 ' : r.action === 'rename' ? '改名 ' : '新增 ') + r.name + ' → ' + r.file
           + (r.menu_name ? ' · 菜单名 ' + r.menu_name + (r.menu_ok ? '' : '（不合规）') : ''));
       });
       (p.blocked || []).forEach(function (b) { log('WARN', b); });
@@ -2276,9 +2228,12 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
     var card = state.cards.find(function (c) { return c.mount_point === mount; });
     $('write-confirm-target').textContent = (card ? card.volume_name + ' · ' : '') + mount;
     var add = p.items.filter(function (r) { return r.action === 'add'; }).length;
+    var renames = p.items.filter(function (r) { return r.action === 'rename'; });
     $('write-confirm-summary').textContent = p.items.length + ' 档 · 新增 ' + add + ' 档 · 移除 '
-      + ((state.tf.changed || {}).del || 0) + ' 档 · 开机默认 ' + (p.preload_name || '—');
-    $('write-confirm-files').innerHTML = (p.files || []).map(function (f) {
+      + ((state.tf.changed || {}).del || 0) + ' 档 · 改名 ' + renames.length + ' 档 · 开机默认 ' + (p.preload_name || '—');
+    $('write-confirm-files').innerHTML = renames.map(function (r) {
+      return '<li>相机名称：' + esc(r.name) + ' → ' + esc(r.menu_name) + '</li>';
+    }).join('') + (p.files || []).map(function (f) {
       return '<li>' + esc(f.file) + ' · ' + f.bytes + ' B</li>';
     }).join('');
     var touch = !!p.touch_preview;
@@ -2559,7 +2514,7 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
       var buf = await f.arrayBuffer();
       var res = await invoke('preview_set_image_bytes', { bytes: Array.from(new Uint8Array(buf)), label: f.name });
       pv.imgVersion = res.version; setImageLabel(f.name);
-      log('OK', '预览照片已载入：' + f.name + '（' + res.w + '×' + res.h + '，最长边 ≤1024）');
+      log('OK', '预览照片已保存，下次打开继续使用：' + f.name + '（' + res.w + '×' + res.h + '，最长边 ≤1024）');
       pv.lastSig = null; requestPreview();
     } catch (e) { log('FAIL', '预览照片载入失败：' + e); }
   });
@@ -2640,10 +2595,12 @@ input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
     if (!results.length) { log('INFO', '已取消选择，库未变化'); return; }
     var oldIds = state.luts.map(function (r) { return r.id; });
     var nOk = results.filter(function (r) { return r.ok; }).length;
+    var hasXmp = results.some(function (r) { return r.ok && /\.xmp$/i.test(r.file); });
     results.forEach(function (r) {
-      log(r.ok ? 'OK' : 'FAIL', (r.ok ? '✓ ' : '✗ ') + r.file + ' — ' + r.msg);
+      log(r.ok ? (/\.xmp$/i.test(r.file) ? 'WARN' : 'OK') : 'FAIL', (r.ok ? '✓ ' : '✗ ') + r.file + ' — ' + r.msg);
     });
-    log(nOk === results.length ? 'OK' : 'WARN', '导入完成：成功 ' + nOk + ' / ' + results.length);
+    log(nOk === results.length && !hasXmp ? 'OK' : 'WARN', '导入完成：成功 ' + nOk + ' / ' + results.length);
+    if (hasXmp) toast('XMP 已按近似效果导入，请先预览；未转换项见结果日志');
     await loadLuts();
     // F-13c：导入成功项同步追加到卡清单末位（待写入，不写卡）
     if (state.cardMount && nOk) {

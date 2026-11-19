@@ -144,26 +144,26 @@ struct ImportOutcome {
 }
 
 /// 按扩展名分派解析（对齐 dxo-gui import_files / Web 版 filt_core.load_lut 支持面）。
-fn parse_any(path: &Path) -> Result<(usize, CubeLUT), String> {
+fn parse_any(path: &Path) -> Result<(CubeLUT, Option<String>), String> {
     let ext = path
         .extension()
         .map(|e| e.to_string_lossy().to_lowercase())
         .unwrap_or_default();
     match ext.as_str() {
-        "cube" => lut_core::read_cube(&path.to_string_lossy()),
+        "cube" => lut_core::read_cube(&path.to_string_lossy()).map(|(_, c)| (c, None)),
         "3dl" => std::fs::read_to_string(path)
             .map_err(|e| format!("读取失败: {e}"))
             .and_then(|t| {
                 lut_core::formats::parse_3dl_text(&t)
                     .and_then(lut_core::formats::grid_to_cube)
-                    .map(|c| (c.source_size, c))
+                    .map(|c| (c, None))
             }),
         "csp" => std::fs::read_to_string(path)
             .map_err(|e| format!("读取失败: {e}"))
             .and_then(|t| {
                 lut_core::formats::parse_csp_text(&t)
                     .and_then(lut_core::formats::grid_to_cube)
-                    .map(|c| (c.source_size, c))
+                    .map(|c| (c, None))
             }),
         "png" | "jpg" | "jpeg" | "tif" | "tiff" => image::open(path)
             .map_err(|e| format!("图像解码失败: {e}"))
@@ -171,9 +171,23 @@ fn parse_any(path: &Path) -> Result<(usize, CubeLUT), String> {
                 let rgb = img.to_rgb8();
                 lut_core::formats::hald_from_pixels(rgb.width(), rgb.height(), rgb.as_raw())
                     .and_then(lut_core::formats::grid_to_cube)
-                    .map(|c| (c.source_size, c))
+                    .map(|c| (c, None))
             }),
-        _ => Err("暂不支持该格式（支持 .cube/.3dl/.csp/Hald 图像）".into()),
+        "xmp" => {
+            use std::io::Read;
+            let mut text = String::new();
+            std::fs::File::open(path)
+                .and_then(|f| f.take(lut_core::xmp::MAX_BYTES as u64 + 1).read_to_string(&mut text))
+                .map_err(|e| format!("读取 XMP 失败: {e}"))?;
+            let parsed = lut_core::xmp::parse_xmp(&text)?;
+            let note = if parsed.omitted.is_empty() {
+                "XMP 近似转换完成；不等同于 Lightroom / Camera Raw 原效果，请先预览".into()
+            } else {
+                format!("XMP 近似转换完成；未转换: {}；请先预览（非 Adobe 原效果）", parsed.omitted.join("、"))
+            };
+            Ok((parsed.lut, Some(note)))
+        }
+        _ => Err("暂不支持该格式（支持 .cube/.3dl/.csp/.xmp/Hald 图像）".into()),
     }
 }
 
@@ -217,8 +231,8 @@ fn import_service(
             continue;
         }
         let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
-        let result = (|| -> Result<(), String> {
-            let (_src_size, lut) = parse_any(&path)?;
+        let result = (|| -> Result<Option<String>, String> {
+            let (lut, note) = parse_any(&path)?;
             let cc = lut_core::compose_with_strength(
                 Some(&lut), &stock_cube, def_tone, strength, def_bw, &header, &tail,
             );
@@ -251,10 +265,10 @@ fn import_service(
                     cube_blob: Some(&blob),
                 })
                 .map_err(|e| e.to_string())?;
-            Ok(())
+            Ok(note)
         })();
         match result {
-            Ok(()) => out.push(ImportOutcome { file: src, ok: true, msg: format!("导入成功（{ext}）") }),
+            Ok(note) => out.push(ImportOutcome { file: src, ok: true, msg: note.unwrap_or_else(|| format!("导入成功（{ext}）")) }),
             Err(e) => out.push(ImportOutcome { file: src, ok: false, msg: e }),
         }
     }
@@ -604,7 +618,7 @@ fn main() {
     tauri::Builder::default()
         .manage(Session::new())
         .manage(cardops::WriteSession::default())
-        .manage(preview::PreviewState::default())
+        .manage(preview::PreviewState::load(&Store::default_db_dir()))
         .invoke_handler(tauri::generate_handler![
             list_luts, list_trash, app_info, card_status,
             import_bytes, import_paths, set_defaults,
@@ -828,6 +842,47 @@ mod tests {
         assert!(!over[0].ok);
         assert!(over[0].msg.contains("上限"));
         assert_eq!(store.count().unwrap(), LIB_MAX);
+    }
+
+    #[test]
+    fn test_xmp_upload_drop_persistence_and_recompute() {
+        use base64::Engine as _;
+        let dir = tempfile::tempdir().unwrap();
+        let text = include_str!("../../tests/fixtures/xmp/global-color.xmp");
+        let path = dir.path().join("color.XMP");
+        std::fs::write(&path, text).unwrap();
+        let dropped = import_service(dir.path(), vec![path], "pass", 0.65, false);
+        assert!(dropped[0].ok, "{dropped:?}");
+        assert!(dropped[0].msg.contains("近似"));
+        assert!(dropped[0].msg.contains("Temperature"));
+        let out = import_uploaded(dir.path(), vec![
+            UploadFile { name: "color.xmp".into(), data: base64::engine::general_purpose::STANDARD.encode(text) },
+            UploadFile { name: "bad.xmp".into(), data: base64::engine::general_purpose::STANDARD.encode("<broken>") },
+        ], "pass", 0.65, false).unwrap();
+        assert!(out[0].ok && !out[1].ok, "{out:?}");
+        let store = Store::open(dir.path()).unwrap();
+        let rows = store.list().unwrap();
+        assert_eq!(rows.len(), 2, "失败项不得入库");
+        assert!(rows.iter().all(|r| r.format == "xmp" && r.cube_hash.is_some() && !r.locked));
+        let id = rows[0].id;
+        let original = store.load_bytes(id).unwrap();
+        assert_eq!(original, store.load_bytes(rows[1].id).unwrap());
+        let blob = store.load_cube_blob(rows[0].cube_hash.as_ref().unwrap()).unwrap();
+        drop(store);
+        // Simulate restart, then change strength using only the persisted source LUT.
+        let mut reopened = Store::open(dir.path()).unwrap();
+        assert_eq!(reopened.load_bytes(id).unwrap(), original);
+        let edit = stage_edit(&reopened, id, "XMPTEST", "neutral", 1.0, false).unwrap();
+        let lut = CubeLUT::from_bytes(&blob).unwrap();
+        let stock = lut_core::load_stock_bytes().unwrap();
+        let (header, cube, tail) = lut_core::decode_table_bytes(&stock);
+        let expected = lut_core::compose_with_strength(Some(&lut), &cube, "neutral", 1.0, false, &header, &tail);
+        assert_eq!(edit.cc, expected);
+        assert_ne!(edit.cc, original);
+        let mut pending = HashMap::from([(id, edit)]);
+        assert!(flush_pending(&mut reopened, &mut pending).failed.is_empty());
+        drop(reopened);
+        assert_eq!(Store::open(dir.path()).unwrap().load_bytes(id).unwrap(), expected);
     }
 
     /// F-15：导入默认自定义名仅英文与数字、≤64；中文/符号过滤，全过滤回退 LUT。

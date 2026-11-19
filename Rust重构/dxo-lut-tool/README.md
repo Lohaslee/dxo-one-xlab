@@ -28,7 +28,7 @@ bash dist/verify-source.sh
 open dxo-app/AppBundle/DXO-ONE-XLAB.app
 ```
 
-`verify-source.sh` 顺序执行：Lightning 整包 19 件 SHA 校验 → 19 项 UI 状态回归 → Rust 回归 → release App 构建与签名校验。
+`verify-source.sh` 顺序执行：Lightning 整包 19 件 SHA 校验 → UI 状态回归 → Rust 回归 → release App 构建与签名校验。
 不运行 `#[ignore]` 的硬件/人工 golden 测试，不向真实相机卡写文件。
 
 只需重新构建 App 时：
@@ -65,6 +65,15 @@ App 的 `build.rs` 从仓库根 `Lightning-L口/SHA256SUMS.txt` 生成内嵌文�
 `lut-core/resources` 的原厂 CC 表与已发布的 `自定义置入滤镜流程/stock/` 同字节；第三方权利说明见根目录 LICENSE / THIRD_PARTY.md。
 测试夹具已入仓，正常测试不需要本地 `工具/filt_core.py`、`golden/` 或 `实验/`。
 
+## XMP 预设导入
+
+在「导入滤镜」中选择或拖入 `.xmp`，与其他 LUT 一样入库、预览、调整强度并加入卡清单。滤镜库持续标注 **XMP 近似**；导入结果以警告显示未转换的非零/启用参数。单个 XMP 上限 4MB，格式错误逐文件报告且不入库。
+
+- 支持 Lightroom / Camera Raw 普通预设中的 `Exposure2012`、`Contrast2012`、`Highlights2012`、`Shadows2012`、`Whites2012`、`Blacks2012`、饱和度、自然饱和度、八色 HSL，以及主曲线/RGB 通道点曲线（PV2012 或旧点曲线）。
+- 采用显示 RGB 上的近似算法，烘焙为 16³ LUT：曝光倍率 → 明暗/对比度 → 主曲线/通道曲线（分段线性）→ HSL/饱和度。它不实现 Adobe RAW 解码、Process Version 或 Adobe 色彩引擎，**不保证与 Lightroom / Camera Raw 原效果一致**。
+- 白平衡、相机配置、校准、清晰度/纹理/去朦胧、参数曲线、色彩分级、黑白混合、锐化/降噪、镜头校正、蒙版等暂不转换；启用参数会列在导入日志中。包含 Adobe Look/Profile 内嵌数据的 XMP 整份拒绝，避免漏掉其核心效果。只有不支持的参数时也会拒绝。
+- 转换后的源 LUT 与 CC 表都持久保存，重启后仍可预览和重算强度；预览与写卡复用同一 CC 表。此一致性不表示复现了 Adobe 的原始处理。
+
 ## 运行数据与旧版接口
 
 当前 Tauri App 在界面扫描并选择存储卡，**不绑定开发者的卡 UUID**。
@@ -81,6 +90,7 @@ DXO_DATA_DIR="$(mktemp -d)" dxo-app/AppBundle/DXO-ONE-XLAB.app/Contents/MacOS/dx
 ## 现有功能与保护
 
 - 滤镜导入、参数保存、同源表预览、卡清单、相机名称提示、选择不闪动。
+- 自动记住最后一张预览照片：仅保存已转正、最长边不超过 1024 的无损副本，更换时替换，重启自动恢复；「重置色卡」清除副本。
 - 内置 Lightning Build 72 完整包，适配固件 3.2.0 / `ecef5ef809`；L口改C口仍按机身固件判断。
 - 纯 C 口入口显示“开发测试中，敬请期待”；不能混装 Lightning 补丁。
 - 写卡先只读预检、展示目标、一次确认；共享写卡锁，未保存参数/换卡/内容变化会阻断。

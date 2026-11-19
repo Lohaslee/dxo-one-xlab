@@ -16,6 +16,7 @@ pub mod sample;
 pub mod compose;
 pub mod cube;
 pub mod formats;
+pub mod xmp;
 pub mod render;
 
 // --- 常量 ---------------------------------------------------------------
