@@ -29,7 +29,13 @@ EXE_NAME="DXO-ONE-XLAB-${VERSION}-Windows-x64-Setup.exe"
 cd "$PROJECT_DIR"
 
 echo "[1/5] 前置检查"
-[ "$(uname -s)" = "Windows_NT" ] || { echo "本脚本必须在 Windows 上运行（当前 $(uname -s)）"; exit 1; }
+# Git Bash / MSYS 的 `uname -s` 是 MINGW64_NT-*/MSYS_NT-*，不是 Windows_NT；用等值判断
+# 会把文档里推荐的入口直接拒掉（CI run 44480903754 的 Build NSIS setup 步就这么挂的）。
+# 真正的平台闸门是下一条 rustc host triple，这里只按模式放行 Windows 系 shell。
+case "$(uname -s)" in
+  Windows_NT|MINGW*|MSYS*|CYGWIN*) ;;
+  *) echo "本脚本必须在 Windows 上运行（当前 $(uname -s)）"; exit 1 ;;
+esac
 command -v rustc >/dev/null || { echo "缺少 Rust"; exit 1; }
 rustc -vV | grep -q 'host: x86_64-pc-windows-msvc' || { echo "Rust host 不是 x86_64-pc-windows-msvc"; exit 1; }
 for input in "$REPO_ROOT/Lightning-L口/SHA256SUMS.txt" "$REPO_ROOT/DEPENDENCIES.md" \
