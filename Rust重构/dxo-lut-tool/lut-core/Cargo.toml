@@ -1,0 +1,10 @@
+[package]
+name = "lut-core"
+version = "0.1.0"
+edition = "2021"
+description = "DxO ONE CC 3D LUT 核心算法（纯计算，无 IO 依赖）"
+
+[dependencies]
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }

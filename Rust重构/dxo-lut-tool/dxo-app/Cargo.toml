@@ -1,0 +1,28 @@
+[package]
+name = "dxo-app"
+version = "0.1.0"
+edition = "2021"
+description = "DXO-ONE-XLAB LUT 工具（Tauri 版 GUI）"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+lut-persist = { path = "../lut-persist" }
+lut-core = { path = "../lut-core" }
+lut-camera = { path = "../lut-camera" }
+base64 = "0.22"
+plist = "1"
+image = { version = "0.25", features = ["png", "jpeg", "tiff", "bmp", "webp"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+# tauri v2 默认配置；后续加自定义协议再扩

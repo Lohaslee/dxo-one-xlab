@@ -1,0 +1,3 @@
+[workspace]
+members = ["lut-core", "lut-persist", "lut-camera", "dxo-cli", "dxo-gui", "dxo-app"]
+resolver = "2"

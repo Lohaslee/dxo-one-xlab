@@ -19,7 +19,35 @@
 > **Build 66 是这条字体链的收敛结果**：已写卡部署、13 件写入校验通过，
 > 滤镜菜单名已在设备上确认正常显示。
 
-> 本仓库包含**相机端补丁 + 运行时依赖 + 说明**。桌面 / 移动端客户端仍在开发，暂未发布。
+> 本仓库包含**相机端补丁、运行时依赖与 macOS 桌面 App 0.1.0 源码**。
+> 桌面源码构建入口见下节；Windows 适配和正式 DMG / EXE 安装包仍待完成。
+
+## 从源码构建桌面 App
+
+当前桌面入口是 **Tauri 2 的 `dxo-app`**，不是旧 Iced GUI。已在 macOS Apple Silicon 验证；
+Windows 目前存在卷识别、刷盘和 Unix API 依赖，不能直接当作支持 Windows 的发行版。
+
+安装 Xcode Command Line Tools、Rust/rustup、Python 3 和 Node.js 22 后：
+
+```bash
+git clone https://github.com/Lohaslee/dxo-one-xlab.git
+cd dxo-one-xlab/Rust重构/dxo-lut-tool
+bash dist/verify-source.sh
+open dxo-app/AppBundle/DXO-ONE-XLAB.app
+```
+
+脚本校验 19 件 Lightning 资源、运行 UI/Rust 测试，再生成可独立运行的 `.app`；
+首次构建需联网下载锁定依赖。仅重新构建可运行 `bash dist/build-app.sh`，无需安装 Tauri CLI 或 npm 依赖。
+本地 App 使用 ad-hoc 签名，尚未完成 Developer ID 签名/公证。
+
+- [桌面源码与构建说明](Rust重构/dxo-lut-tool/README.md)
+- [源码复现验收记录](Rust重构/dxo-lut-tool/docs/SOURCE-REPRODUCIBILITY.md)
+- [后续 Mac / Windows 安装包 AI 执行交接](AI执行交接-Mac与Windows安装包.md)
+
+源码、锁文件、UI/字体/图标、原厂参照表和测试夹具均已纳入仓库；保留完整目录层级，
+编译还会读取根目录 `Lightning-L口/` 和 `DEPENDENCIES.md`。
+用户数据库、照片、相机卡备份、已构建 App 与本地实验档案不随仓库发布。
+源码可阅读与个人非商业复现，许可边界见 [LICENSE](LICENSE)。
 
 ---
 
@@ -280,6 +308,8 @@ Build 69 与 Build 66 的机器码与 LUT 数据**零差异**（仅诊断 magic 
 | `Lightning-L口/` | **Lightning / L口 整包**（Build 72）：14 件补丁产物（含第 11 档 INSTA）+ `dxot/` 与 `touch_prefs.bin`（5 件第三方触屏依赖）+ `PH_DIAG/` 空目录占位 + `README.md` + `SHA256SUMS.txt`（19 件卡文件）。**整包复制到卡根即用** |
 | `USB-C-C口/` | **USB-C / C口 整包**：林达 v26 触屏补丁原包（37 件卡文件 + README + 校验清单，非本仓库原创，无滤镜功能）。**整包复制到卡根即用** |
 | `自定义置入滤镜流程/` | 自定义滤镜：`.cube` → 机内 CC 表转换内核（已验证）+ 测试 + 原厂参照表 `stock/` + Build 69 回归夹具 `testdata/` + 置入说明 + AI 提示词 |
+| `Rust重构/dxo-lut-tool/` | 当前 macOS Tauri App 源码、锁定依赖、构建脚本与合成测试夹具 |
+| `AI执行交接-Mac与Windows安装包.md` | 后续 Mac 正式安装包与 Windows 适配的执行交接 |
 | `DEPENDENCIES.md` | 依赖来源、署名、适用固件与部署规则 |
 | `THIRD_PARTY.md` | 第三方材料与商标声明 |
 | `CONTRIBUTING.md` | 反馈方式与提交红线 |
@@ -292,8 +322,8 @@ Build 69 与 Build 66 的机器码与 LUT 数据**零差异**（仅诊断 magic 
 
 ## 路线
 
-- 桌面 / 移动端客户端：开发中，完成后单独发布
-- 滤镜置入 GUI 客户端：开发中（命令行流程已可用，见 [自定义置入滤镜流程/](自定义置入滤镜流程/README.md)）
+- macOS 桌面滤镜客户端：0.1.0 源码已纳入仓库，可自行构建；正式签名安装包后续完善
+- Windows 客户端：需完成读卡和写入适配；移动端客户端尚未发布
 - 逆向分析文档与构建工具链：后续视情况整理公开
 
 ## 开发说明
@@ -311,4 +341,4 @@ Build 69 与 Build 66 的机器码与 LUT 数据**零差异**（仅诊断 magic 
 
 ---
 
-_Build 72 · 2026-11-17 · 客户端未包含在本仓库_
+_相机补丁 Build 72 · 桌面 App 0.1.0 源码复现说明见上文_

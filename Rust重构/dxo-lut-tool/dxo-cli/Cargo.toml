@@ -1,0 +1,10 @@
+[package]
+name = "dxo-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lut-core = { path = "../lut-core" }
+lut-persist = { path = "../lut-persist" }
+lut-camera = { path = "../lut-camera" }
+serde_json = "1"

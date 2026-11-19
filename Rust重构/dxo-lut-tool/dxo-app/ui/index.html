@@ -1,0 +1,2623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DXO-ONE-XLAB</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23141418'/%3E%3Crect x='6' y='6' width='52' height='52' fill='none' stroke='%234eadb9' stroke-width='5'/%3E%3Ctext x='32' y='45' font-size='36' font-family='Impact,Arial Black,sans-serif' font-weight='900' text-anchor='middle' fill='%234eadb9'%3ED%3C/text%3E%3C/svg%3E">
+<style>
+/* ── 本地字体（OFL，见 fonts/OFL-*.txt）；禁止外链 Google Fonts（规范 §391） ── */
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('fonts/bebas-neue-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'VT323';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('fonts/vt323-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ── §11 可复制令牌（与样张 v1.7 一致） ───────────────── */
+:root {
+  --bg:       oklch(13% 0.005 250);
+  --surface:  oklch(100% 0 0);
+  --surface-dim: oklch(18% 0.005 250);
+  --fg:       oklch(95% 0.01 100);
+  --muted:    oklch(66% 0.01 100);
+  --border:   oklch(30% 0.01 100);
+  --accent:   oklch(69.5% 0.091 206.5);
+  --warn:     oklch(80% 0.14 85);
+  --accent-soft: color-mix(in oklch, var(--accent) 18%, transparent);
+  --fg-soft:     color-mix(in oklch, var(--fg) 8%, transparent);
+
+  --font-display: 'Bebas Neue', 'Anton', 'Helvetica Black', 'Impact',
+                  'Noto Sans SC', 'Source Han Sans SC', 'Source Han Sans CN',
+                  'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+               'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  --font-tag:  'Permanent Marker', var(--font-display);
+  --font-crt:  'VT323', var(--font-mono);
+
+  --gap-xs: 6px;  --gap-sm: 10px; --gap-md: 14px;
+  --gap-lg: 20px; --gap-xl: 28px; --gap-2xl: 48px;
+  --container: 1120px;
+  --gutter: 20px;
+  --menu-w: 208px;
+  --statusbar-h: 34px;
+}
+
+/* ── §2.5 零圆角 / 2px 硬边 / 3px 焦点环 / 无阴影 ───── */
+*, *::before, *::after { box-sizing: border-box; border-radius: 0 !important; box-shadow: none !important; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.55 var(--font-body); -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+a { color: inherit; }
+
+/* ── §7 装饰纹理层 ─────────────────────────────────── */
+.scanlines, .vignette, .grain { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+.scanlines { background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0,0,0,.18) 2px 3px); mix-blend-mode: multiply; }
+.vignette { background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.45) 100%); }
+.grain { opacity: .085; mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E"); }
+.app { position: relative; z-index: 1; }
+
+/* ── 版式 ───────────────────────────────────────────── */
+.wrap { max-width: none; margin: 0; padding-inline: var(--gutter); }
+h1, h2, h3, .display { font-family: var(--font-display); font-synthesis-weight: none; text-transform: uppercase; margin: 0; }
+h1 { font-size: clamp(40px, 6vw, 72px); line-height: .92; letter-spacing: -.02em; font-weight: 700; }
+h2 { font-size: 26px; line-height: 1; letter-spacing: -.005em; }
+h3 { font-size: 16px; line-height: 1.3; letter-spacing: .01em; }
+.lead { font-size: 14px; line-height: 1.55; color: var(--muted); max-width: 66ch; }
+.meta { font: 12px/1.5 var(--font-mono); letter-spacing: .03em; color: var(--muted); }
+.num  { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.eyebrow { display: inline-block; font: 10px/1 var(--font-mono); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted); border: 1px solid var(--border);
+  padding: 4px 8px; margin-bottom: var(--gap-sm); }
+
+/* ── §4.1 按钮 ─────────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-xs);
+  padding: 9px 16px; border: 2px solid var(--fg); background: transparent; color: var(--fg);
+  font: 600 12.5px/1 var(--font-body); letter-spacing: .04em; text-transform: uppercase;
+  cursor: pointer; transition: background .12s ease, color .12s ease; white-space: nowrap; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); } /* 点缀色 ②/② */
+.btn-primary:hover, .btn-primary:focus-visible { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn-secondary:hover, .btn-secondary:focus-visible { background: var(--fg); color: var(--bg); }
+.btn-ghost { border: 0; padding-inline: 8px; }
+.btn-ghost:hover, .btn-ghost:focus-visible { background: var(--fg); color: var(--bg); }
+.btn-arrow::after { content: '→'; transition: transform .15s ease; }
+.btn-arrow:hover::after { transform: translateX(2px); }
+.btn--sm { padding: 6px 10px; font-size: 11px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn[disabled]:hover { background: transparent; color: var(--fg); }
+.btn-primary[disabled]:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+/* ── 交互语义强化：区域角色 / 按钮性质 / 控件状态 ─────
+   设计约束：沿用 CRT 硬边语言，零圆角、单点缀色、无 emoji。
+   只用「实心 vs 空心」「实线 vs 虚线」「几何字形」表达语义层级。 ── */
+/* 角色徽章：实心=输入/操作，空心=输出/结果 */
+.eyebrow.role-in  { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+.eyebrow.role-out { color: var(--fg); border-color: var(--fg); }
+/* 分区锚点：每个 section 标题前的.block 前缀，便于快速扫描 */
+/* 模块身份铭牌：实心序号块(accent 底)，像磁带通道号，给每个功能块可扫读的编号 */
+.cap::before { content: counter(mod, decimal-leading-zero);
+  display: inline-block; background: var(--accent); color: var(--bg);
+  font: 700 10px/1 var(--font-mono); letter-spacing: 0;
+  padding: 3px 5px; margin-right: 9px; }
+/* 查看区(pane-result)编号用空心描边，与编辑区实心区分：实心=正在编辑，空心=只读查看 */
+.pane-result .cap::before { background: transparent; color: var(--fg); border: 2px solid var(--fg); padding: 2px 4px; }
+.sink > .cap::before { background: transparent; color: var(--muted); border: 2px solid var(--border); padding: 2px 4px; }
+/* 破坏性操作：虚线边框 + 方框感叹号，与普通操作拉开距离（可恢复=虚线，永久=双字符） */
+.btn-danger { border-style: dashed; }
+.btn-danger::before { content: '!'; display: inline-grid; place-items: center;
+  width: 14px; height: 14px; border: 2px solid currentColor; font: 700 10px/1 var(--font-mono); }
+.btn-danger:not([disabled]):hover, .btn-danger:not([disabled]):focus-visible { background: var(--fg); color: var(--bg); }
+.tr-purge.btn-danger { border: 2px dashed var(--fg); }
+/* 几何字形图标：表达动作，不用 emoji */
+.ic-import::before  { content: '▣'; }
+.ic-save::before    { content: '↧'; }
+.ic-default::before { content: '◇'; }
+.ic-trash::before   { content: '▤'; }
+.ic-photo::before   { content: '▧'; }
+.ic-reset::before   { content: '↺'; }
+/* 互斥切换：并排 / 拖动对比 合并成一个二选一分段控件（id 与 aria-pressed 保持不变） */
+.segmode { display: inline-flex; border: 2px solid var(--fg); }
+.segmode .btn { border: 0; border-right: 2px solid var(--fg); }
+.segmode .btn:last-child { border-right: 0; }
+.segmode .btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+/* 展开型开关：回收站展开时反白 */
+.btn-toggle[aria-expanded="true"] { background: var(--fg); color: var(--bg); }
+/* 行内移除：轻量虚线，比破坏性按钮弱一级（可恢复操作） */
+.log-row .ops .rm { border: 2px dashed var(--border); }
+.log-row .ops .rm:hover, .log-row .ops .rm:focus-visible { border-color: var(--fg); }
+/* 当前所在模块：菜单左侧 accent 竖条 */
+#tab-import:checked ~ .app .menu label[for="tab-import"],
+#tab-patch:checked  ~ .app .menu label[for="tab-patch"],
+#tab-about:checked  ~ .app .menu label[for="tab-about"] { border-left-color: var(--accent); }
+.menu label.menu-row { border-left: 3px solid transparent; }
+
+/* ── §4.2 pill ─────────────────────────────────────── */
+.pill { display: inline-block; padding: 4px 9px; border: 2px solid var(--border);
+  font: 10.5px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase;
+  color: var(--fg); background: transparent; cursor: pointer;
+  transition: background .12s ease, color .12s ease; }
+.pill:hover { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.pill--on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.pill[disabled] { opacity: .55; cursor: not-allowed; }
+.pill[disabled]:hover { background: transparent; color: var(--fg); border-color: var(--border); }
+.pill--on[disabled]:hover { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+/* ── 软件窗口：三栏直接撑满，OS 提供窗口 chrome ────── */
+.menu-status { padding: 0 var(--gap-md) var(--gap-md); }
+.status-chip { display: inline-block; font: 10px/1 var(--font-mono); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent);
+  padding: 4px 8px; }   /* 点缀色 ①/② */
+.status-chip--off { color: var(--muted); border-color: var(--border); }
+.statusbar { position: sticky; bottom: 0; z-index: 3; border-top: 2px solid var(--fg);
+  background: var(--bg); height: var(--statusbar-h); }
+.statusbar-inner { display: flex; flex-wrap: nowrap; gap: var(--gap-lg); align-items: center;
+  height: 100%; padding-block: 0; }
+.statusbar-inner .meta:first-child { color: var(--fg); }
+.statusbar-inner .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── §13 三栏骨架：菜单 | 操作 | 预览+结果 ────────────── */
+.shell { display: grid; grid-template-columns: var(--menu-w) minmax(0, 1fr);
+  height: calc(100vh - var(--statusbar-h)); }
+.menu { border-right: 2px solid var(--border); padding: var(--gap-md) 0;
+  display: flex; flex-direction: column; }
+.menu-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding: 0 var(--gap-md) var(--gap-sm); font: 10px var(--font-mono);
+  letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.menu-head .brand { color: var(--fg); letter-spacing: .1em; white-space: nowrap; }
+.menu-head .idx { flex-shrink: 0; }
+.menu-row { display: grid; grid-template-columns: 26px minmax(0,1fr); gap: 2px var(--gap-sm);
+  padding: 10px var(--gap-md); border-top: 2px solid var(--border); cursor: pointer;
+  align-items: center; flex: 0 0 auto;
+  transition: background .12s ease, color .12s ease, border-color .12s ease; }
+.menu-row:last-of-type { border-bottom: 2px solid var(--border); }
+.menu-row .n { grid-row: span 2; font: 11px var(--font-mono); color: var(--muted); }
+.menu-row .t { font: 17px/1.05 var(--font-display); text-transform: uppercase; letter-spacing: .01em; }
+.menu-row .s { font: 10px/1.5 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.menu-row:hover { border-top-color: var(--fg); }
+.menu-row:hover .n { color: var(--fg); }
+.menu-foot { margin-top: auto; padding: var(--gap-md) var(--gap-md) 0;
+  font: 10px/1.5 var(--font-mono); letter-spacing: .08em; color: var(--muted); }
+
+.menu-radio { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.panel { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 0; }
+.pane { padding: var(--gap-lg) var(--gap-lg) var(--gap-md); min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; counter-reset: mod; }
+.pane > .sink { margin-top: auto; background: var(--surface-dim);
+  border: 2px solid var(--border); padding: var(--gap-md); }
+.pane-op { border-right: 2px solid var(--border); }
+.pane-head { margin-bottom: var(--gap-md); }
+.pane-head h2 { margin-bottom: var(--gap-xs); }
+.pane-head p { margin: var(--gap-xs) 0 0; }
+.pane-section { margin-top: var(--gap-lg); border-top: 2px solid var(--border);
+  padding-top: var(--gap-md); counter-increment: mod; }
+.pane-head + .pane-section { padding-top: 0; }
+/* 普通分区：三面硬边围出完整"块"，编号铭牌压在顶线上像卡片标签；sink 自带整框不重复 */
+.pane-section:not(.sink) { border: 2px solid var(--border); border-top-width: 3px;
+  padding: var(--gap-md) var(--gap-md) var(--gap-sm); margin-top: var(--gap-lg); }
+.pane-section:not(.sink) > .cap,
+.pane-section:not(.sink) .sec-head > .cap { margin-top: -1px; }
+.pane-section > h3 { margin-bottom: var(--gap-md); }
+.cap { font: 10px/1.35 var(--font-mono); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: var(--gap-xs); }
+.sec-head { display: flex; justify-content: space-between; align-items: center;
+  gap: var(--gap-sm); margin-bottom: var(--gap-xs); }
+.sec-head .cap { margin-bottom: 0; }
+/* 参数区：标题与「导入默认」上下排列，避免左右对挤；编号铭牌仍压在顶线上 */
+.sec-head--stack { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; }
+.sec-head--stack #def-line { padding-left: 0; }
+
+#tab-patch:checked  ~ .app .workspace #panel-patch,
+#tab-import:checked ~ .app .workspace #panel-import,
+#tab-about:checked  ~ .app .workspace #panel-about  { display: grid; }
+
+#tab-patch:checked  ~ .app .menu label[for="tab-patch"],
+#tab-import:checked ~ .app .menu label[for="tab-import"],
+#tab-about:checked  ~ .app .menu label[for="tab-about"] {
+  background: var(--fg); color: var(--bg); border-top-color: var(--fg);
+}
+#tab-patch:checked  ~ .app .menu label[for="tab-patch"]  .n,
+#tab-patch:checked  ~ .app .menu label[for="tab-patch"]  .s,
+#tab-import:checked ~ .app .menu label[for="tab-import"] .n,
+#tab-import:checked ~ .app .menu label[for="tab-import"] .s,
+#tab-about:checked  ~ .app .menu label[for="tab-about"]  .n,
+#tab-about:checked  ~ .app .menu label[for="tab-about"]  .s { color: var(--bg); }
+#tab-patch:focus-visible  ~ .app .menu label[for="tab-patch"],
+#tab-import:focus-visible ~ .app .menu label[for="tab-import"],
+#tab-about:focus-visible  ~ .app .menu label[for="tab-about"] { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* ── §4.6 列表行 ───────────────────────────────────── */
+.log-list { counter-reset: row; container-type: inline-size; }
+.list-head { flex-wrap: wrap; }
+.list-head > .cap { white-space: nowrap; }
+.list-head > .tools { width: 100%; flex-wrap: wrap; }
+.list-head .meta { margin-right: auto; }
+.log-row { counter-increment: row; display: grid; grid-template-columns: 26px minmax(0,1fr) auto;
+  gap: var(--gap-sm); padding: 16px 0 8px; align-items: center; position: relative;
+  border-top: 2px solid var(--border); transition: border-color .14s ease; cursor: pointer; }
+.log-row::before { content: counter(row, decimal-leading-zero); font: 11px var(--font-mono); color: var(--muted); transition: color .14s ease; }
+.log-row:hover { border-top-color: var(--fg); }
+.log-row:hover::before { color: var(--fg); }
+.log-row > div { min-width: 0; }
+.log-row .title { font: 15px/1.35 var(--font-display); letter-spacing: .01em; text-transform: uppercase; overflow-wrap: anywhere; }
+.log-row .sub { font: 11px/1.5 var(--font-mono); letter-spacing: .03em; color: var(--muted); margin-top: 1px; overflow-wrap: anywhere; }
+.log-row .ops { display: flex; gap: var(--gap-xs); align-items: center; }
+.log-row .menu-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.log-row .menu-lab { font: 12px var(--font-body); color: inherit; }
+.log-row .tf-menu { width: 104px; background: var(--bg); border: 2px solid var(--border); color: var(--fg);
+  font: 14px/1.4 var(--font-mono); letter-spacing: .06em; padding: 5px 8px; text-transform: uppercase; }
+.log-row .tf-menu:hover, .log-row .tf-menu:focus { border-color: var(--fg); }
+.log-row .tf-menu--bad { border-color: oklch(65% 0.19 25); color: oklch(75% 0.15 25); }
+.log-row .menu-bad { flex-basis: 100%; font: 12px/1.5 var(--font-body); color: oklch(65% 0.19 25); }
+.log-row--selected .menu-bad { color: var(--bg); }
+.log-row--selected .tf-menu-use { color: var(--bg); border-color: var(--bg); }
+.name-help { margin-bottom: var(--gap-sm); }
+.name-help code { overflow-wrap: anywhere; }
+@container (max-width: 460px) {
+  .log-row { grid-template-columns: 22px minmax(0, 1fr); }
+  .log-row .ops { grid-column: 2; flex-wrap: wrap; justify-content: flex-end; }
+}
+/* 选中态：白底反色（本地库与卡清单同一语义）+「当前滤镜」角标 */
+.log-row--selected { background: var(--fg); color: var(--bg); border-top-color: var(--fg); }
+.log-row--default { padding-top: 20px; }
+.log-row--selected::before, .log-row--selected:hover::before { color: var(--bg); }
+.log-row--selected:hover { border-top-color: var(--fg); }
+.log-row--selected .title { text-decoration: none; }
+.log-row--selected .sub { color: color-mix(in oklch, var(--bg) 62%, var(--fg)); }
+.log-row--selected .ops .btn-ghost { color: var(--bg); }
+.log-row--selected .ops .btn-ghost:hover, .log-row--selected .ops .btn-ghost:focus-visible { background: var(--bg); color: var(--fg); }
+.log-row--selected .ops .pill { border-color: color-mix(in oklch, var(--bg) 45%, var(--fg)); color: var(--bg); }
+.log-row--selected .ops .pill:hover { background: var(--bg); color: var(--fg); border-color: var(--bg); }
+.log-row--selected .ops .pill--on { background: var(--bg); color: var(--fg); border-color: var(--bg); }
+.log-row--selected.dragover { background: var(--fg); border-top-color: var(--accent); }
+.cur-badge { position: absolute; top: -2px; right: 0; z-index: 1; pointer-events: none;
+  background: var(--bg); color: var(--fg); border: 2px solid var(--fg);
+  font: 10px/1.2 var(--font-mono); letter-spacing: .1em; padding: 2px 6px; }
+.def-badge { position: absolute; top: -2px; left: 0; z-index: 1; pointer-events: none;
+  background: var(--accent); color: var(--bg); border: 2px solid var(--accent);
+  font: 10px/1.2 var(--font-mono); letter-spacing: .1em; padding: 2px 6px; }
+/* F-15 toast：硬边白底 / 警示琥珀，自动消失；reduce-motion 全局关动画 */
+#toasts { position: fixed; left: 50%; bottom: calc(var(--statusbar-h) + 14px); transform: translateX(-50%);
+  z-index: 60; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast { border: 2px solid var(--fg); background: var(--surface); color: var(--bg);
+  font: 12px/1.4 var(--font-mono); letter-spacing: .02em; padding: 8px 14px; max-width: 72vw;
+  animation: toast-in .16s ease-out; }
+.toast--warn { border-color: var(--warn); background: var(--bg); color: var(--warn); }
+.toast.out { opacity: 0; transition: opacity .25s ease; }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.empty-box { border: 2px solid var(--border); padding: var(--gap-md); }
+.empty-box .meta { margin: 0; }
+
+/* ── 表单控件 ───────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--gap-sm); }
+.field > label { font: 10px/1.35 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+input[type=text] { width: 100%; padding: 7px 10px; background: transparent; color: var(--fg);
+  border: 2px solid var(--border); font: 13px var(--font-body); }
+input[type=text]:hover { border-color: var(--fg); }
+input[type=text]::placeholder { color: var(--muted); }
+input[type=text][disabled] { opacity: .5; cursor: not-allowed; }
+.seg { display: inline-flex; border: 2px solid var(--fg); }
+.seg label { padding: 6px 11px; font: 600 12px/1.4 var(--font-body); letter-spacing: .04em;
+  text-transform: uppercase; cursor: pointer; border-right: 2px solid var(--fg); transition: background .12s ease, color .12s ease; }
+.seg label:last-of-type { border-right: 0; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:hover { background: var(--fg); color: var(--bg); }
+.seg input:checked + label { background: var(--fg); color: var(--bg); }
+.seg input:focus-visible + label { outline: 3px solid var(--accent); outline-offset: 2px; }
+.range { width: 100%; appearance: none; -webkit-appearance: none; height: 16px; background: transparent; cursor: pointer; }
+.range::-webkit-slider-runnable-track { height: 2px; background: var(--border); }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 16px; margin-top: -7px; background: var(--fg); border: 2px solid var(--bg); }
+.range::-moz-range-track { height: 2px; background: var(--border); }
+.range::-moz-range-thumb { width: 12px; height: 16px; border: 2px solid var(--bg); }
+.range:hover::-webkit-slider-thumb { background: var(--bg); border-color: var(--fg); }
+.range-val { font: 15px var(--font-mono); font-variant-numeric: tabular-nums; }
+.toggle { display: inline-flex; align-items: center; gap: var(--gap-sm); cursor: pointer; font: 12px var(--font-body); }
+.toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle .track { width: 34px; height: 18px; border: 2px solid var(--fg); background: transparent; display: inline-block; position: relative; flex-shrink: 0; transition: background .12s ease; }
+.toggle .track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; background: var(--fg); transition: transform .12s ease, background .12s ease; }
+.toggle input:checked + .track { background: var(--fg); }
+.toggle input:checked + .track::after { transform: translateX(16px); background: var(--bg); }
+.toggle input:focus-visible + .track { outline: 3px solid var(--accent); outline-offset: 2px; }
+.toggle--off { opacity: .5; cursor: not-allowed; }
+.tools { display: flex; gap: var(--gap-xs); flex-wrap: wrap; align-items: center; }
+.drop { border: 2px solid var(--fg); padding: 12px var(--gap-md) 14px; text-align: center; cursor: pointer; }
+.drop h3 { font-size: 15px; }
+.drop .meta { margin: 3px 0 10px; }
+.drop--over { background: var(--fg-soft); }
+.log-row.dragover { border-top-color: var(--fg); background: var(--fg-soft); }
+.save-banner { position: fixed; left: 0; right: 0; bottom: var(--statusbar-h); z-index: 4;
+  display: flex; align-items: center; gap: var(--gap-md); padding: 8px var(--gutter);
+  background: var(--fg); color: var(--bg); border-top: 2px solid var(--fg); }
+.save-banner[hidden] { display: none; }
+.save-banner .meta { color: var(--bg); }
+.save-banner .btn { border-color: var(--bg); color: var(--bg); }
+.save-banner .btn:hover { background: var(--bg); color: var(--fg); }
+.row-2 { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--gap-md); align-items: start; }
+.slider-row { display: flex; align-items: center; gap: var(--gap-sm); }
+
+/* ── §4.3 白卡（全页唯一亮块） ─────────────────────── */
+.card { background: var(--surface); color: var(--bg); border: 2px solid var(--fg); padding: 14px; }
+.card h3 { color: var(--bg); }
+.card .meta { color: color-mix(in oklch, var(--bg) 62%, var(--surface)); }
+.card .body { color: color-mix(in oklch, var(--bg) 78%, var(--surface)); font-size: 14px; }
+.card .pill { border-color: color-mix(in oklch, var(--bg) 38%, var(--surface)); color: var(--bg); cursor: default; }
+.card .pill:hover { background: transparent; color: var(--bg); border-color: color-mix(in oklch, var(--bg) 38%, var(--surface)); }
+.card .liner { border-top: 2px solid color-mix(in oklch, var(--bg) 22%, var(--surface)); margin-top: var(--gap-sm); padding-top: var(--gap-xs); }
+.card .crt { font-family: var(--font-crt); font-size: 12px; }
+/* TF 卡选择器：白卡内深底控件，硬边反色 */
+.tf-picker { display: flex; gap: var(--gap-xs); align-items: center; margin-top: var(--gap-sm); }
+.card select { flex: 1; min-width: 0; appearance: none; -webkit-appearance: none;
+  background: var(--bg); color: var(--fg); border: 2px solid var(--bg);
+  padding: 6px 8px; font: 12px var(--font-mono); letter-spacing: .03em; cursor: pointer; }
+.card select:hover, .card select:focus-visible { border-color: color-mix(in oklch, var(--bg) 55%, var(--surface)); outline: none; }
+#patch-select { display: block; width: 100%; margin-block: var(--gap-xs); padding: 8px;
+  background: var(--bg); color: var(--fg); border: 2px solid var(--border); font: 12px var(--font-mono); }
+#patch-select:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.card .btn { border-color: var(--bg); color: var(--bg); }
+.card .btn:hover, .card .btn:focus-visible { background: var(--bg); color: var(--surface); }
+.card .btn[disabled]:hover { background: transparent; color: var(--bg); }
+
+/* ── §4.10 图片 / 预览 ─────────────────────────────── */
+.content-img { display: block; width: 100%; height: auto; border: 2px solid var(--fg); }
+.preview-empty { border: 2px solid var(--border); aspect-ratio: 320 / 200; display: flex;
+  flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; padding: 8px; }
+.pv-box { border: 2px solid var(--border); aspect-ratio: 4 / 3; position: relative;
+  overflow: auto; scrollbar-gutter: stable; background: var(--bg); display: flex; }
+/* 不设 align/justify center：溢出时居中会把左/上溢出变成滚不到的死区；
+   居中交给 .pv-frame 的 margin:auto（放得下时居中，溢出时归零起对齐） */
+/* 并排与拖动共用同一 4:3 预览区：切换模式位置/尺寸零变化，并排在内左右分半 */
+.pv-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap-sm); aspect-ratio: 4 / 3; }
+.pv-half { min-width: 0; min-height: 0; }
+.pv-split .pv-box { aspect-ratio: auto; width: 100%; height: 100%; }
+.pv-box img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* 内框按照片实际比例收缩（JS 定尺寸 ×缩放倍率），margin:auto 保证放大溢出后四边均可滚动；
+   flex:0 0 auto 禁止 flex 收缩把 JS 设定的放大尺寸压回容器宽（否则倍率只改标签不改画面） */
+.pv-frame { position: relative; width: 100%; height: 100%; margin: auto; flex: 0 0 auto; }
+.pane-result > * { flex-shrink: 0; }
+.pv-tag { position: absolute; top: 6px; z-index: 2; pointer-events: none;
+  font: 11px var(--font-mono); letter-spacing: .08em; padding: 2px 7px;
+  background: var(--fg); color: var(--bg); }
+.pv-tag--l { left: 6px; }
+.pv-tag--r { right: 6px; }
+.pv-tag[hidden] { display: none; }
+.pane-result #filter-card { margin-top: var(--gap-sm); padding: 10px; }
+.pane-result #filter-card h3 { margin-top: 4px; }
+.pane-result #filter-card p { margin-top: 2px; }
+.pane-result .log-panel { max-height: 96px; padding: 6px var(--gap-sm); }
+.pane-result > .sink { margin-top: var(--gap-sm); }
+.pv-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 8px; background: var(--surface); color: var(--bg); }
+.pv-ph[hidden] { display: none; }
+.pv-slider { cursor: ew-resize; touch-action: none; }
+.pv-slider:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.pv-slider img { position: absolute; inset: 0; }
+.pv-handle { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--fg);
+  transform: translateX(-1px); pointer-events: none; }
+.pv-handle::after { content: ""; position: absolute; top: 50%; left: 50%; width: 14px; height: 14px;
+  transform: translate(-50%, -50%); background: var(--fg); }
+#pv-mode-split[aria-pressed="true"], #pv-mode-slider[aria-pressed="true"] {
+  background: var(--fg); color: var(--bg); border-color: var(--fg); }
+/* 预览缩放：只放大照片内框（frame 尺寸 × 倍率），角标/边框/手柄等 UI 保持原尺寸；
+   .pv-box 为滚动容器，#pv-viewport 固定 4:3 仅作布局外框 */
+.pv-box::-webkit-scrollbar { width: 10px; height: 10px; }
+.pv-box::-webkit-scrollbar-thumb { background: var(--border); }
+.pv-box::-webkit-scrollbar-track { background: transparent; }
+.pv-box::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── 清单 / 日志 / 示意框 ──────────────────────────── */
+.checklist { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--border); }
+.checklist li { display: flex; justify-content: space-between; gap: var(--gap-md);
+  padding: 5px 0; border-bottom: 2px solid var(--border); font: 11px var(--font-mono); letter-spacing: .03em; }
+.checklist li span:last-child { color: var(--muted); text-align: right; overflow-wrap: anywhere; }
+.log-panel { border: 2px solid var(--border); padding: var(--gap-sm); max-height: 132px; overflow-y: auto; }
+.log-line { display: flex; gap: var(--gap-sm); padding: 2px 0; font: 11px var(--font-mono); letter-spacing: .02em; }
+.log-line .ts { color: var(--muted); min-width: 62px; flex-shrink: 0; }
+.log-line .lv { min-width: 50px; color: var(--muted); flex-shrink: 0; }
+.log-line .lv--fail { color: var(--fg); font-weight: 700; }
+.ring-box { border: 2px solid var(--border); padding: var(--gap-sm) var(--gap-md); }
+.ring { display: flex; flex-wrap: wrap; gap: 5px; }
+.slot { font: 10px var(--font-mono); letter-spacing: .04em; padding: 3px 6px; border: 2px solid var(--border); }
+.slot--first { border-color: var(--fg); background: var(--fg); color: var(--bg); }
+
+/* ── §3.1 断点 ─────────────────────────────────────── */
+@media (max-width: 1150px) {
+  :root { --menu-w: 188px; --gap-md: 12px; --gap-lg: 16px; }
+  .pane { padding: 16px 16px 12px; }
+  .menu-row { padding: 9px var(--gap-md); }
+  .menu-row .t { font-size: 16px; }
+  .drop { padding: 10px 12px 12px; }
+}
+@media (max-height: 700px) {
+  .pane-section { margin-top: 14px; }
+  .pane-head { margin-bottom: 10px; }
+  .menu-row { padding-block: 8px; }
+}
+.pane { overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 1080px) { .rec, .disc { display: none } }
+@media (max-width: 920px) {
+  .shell { grid-template-columns: minmax(0, 1fr); height: auto;
+    min-height: calc(100vh - var(--statusbar-h)); }
+  .workspace { display: block; }
+  .panel { display: none; }
+  #tab-patch:checked  ~ .app .workspace #panel-patch,
+  #tab-import:checked ~ .app .workspace #panel-import,
+  #tab-about:checked  ~ .app .workspace #panel-about { display: block; }
+  .menu { border-right: 0; border-bottom: 2px solid var(--border); padding: var(--gap-md) 0; }
+  .menu-row { padding: 12px var(--gap-md); }
+  .pane { overflow: visible; }
+  .statusbar { position: static; height: auto; }
+  .statusbar-inner { flex-wrap: wrap; height: auto; padding-block: 8px; row-gap: 4px; }
+  .statusbar-inner .meta { white-space: normal; }
+  .pane-op { border-right: 0; border-bottom: 2px solid var(--border); }
+}
+@media (max-width: 640px) {
+  :root { --gutter: 18px; }
+  h1 { font-size: clamp(44px, 15vw, 68px); }
+  .btn { min-height: 44px; }
+  .btn-primary { width: 100%; }
+  .row-2 { grid-template-columns: minmax(0, 1fr); gap: var(--gap-sm); }
+  .sec-head { flex-wrap: wrap; row-gap: 6px; }
+  .log-row { grid-template-columns: 22px minmax(0,1fr); }
+  .log-row .ops { grid-column: 2; justify-content: flex-start; }
+  .tools { row-gap: 6px; }
+}
+/* ── §8 减少动态 ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .scanlines, .grain, .vignette { display: none; }
+  .rec::before { opacity: 1; }
+  .splash, .pixel-decor { display: none; }
+}
+
+/* ── 启动序列 / 像素屏装饰（v1.5） ────────────────────── */
+.pixel-decor, .splash-pixels { position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden; }
+.px { position: absolute; display: block; background: var(--fg); }
+
+.splash { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 26px;
+  background: var(--bg); overflow: hidden;
+  animation: splash-out .5s ease 3.5s forwards; }
+.splash > *:not(.splash-pixels) { position: relative; z-index: 1; }
+.splash.done { display: none; }
+
+.cam { --cell: 12px; width: calc(26 * var(--cell)); height: calc(40 * var(--cell));
+  --cam-metal:    color-mix(in oklch, var(--fg) 30%, var(--bg));
+  --cam-metal-hi: color-mix(in oklch, var(--fg) 46%, var(--bg));
+  --cam-metal-lo: color-mix(in oklch, var(--fg) 10%, var(--bg));
+  --cam-board:    color-mix(in oklch, var(--fg) 4%,  var(--bg));
+  --cam-barrel:   color-mix(in oklch, var(--fg) 16%, var(--bg));
+  --cam-glass:    oklch(9% 0.01 250); }
+@media (max-height: 760px), (max-width: 560px) { .cam { --cell: 7px; } }
+.cam svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+.c-pm { fill: var(--cam-metal); }
+.c-ph { fill: var(--cam-metal-hi); }
+.c-pl { fill: var(--cam-metal-lo); }
+.c-pb { fill: var(--cam-board); }
+.c-pr { fill: var(--cam-barrel); }
+.c-pg { fill: var(--cam-glass); }
+.c-pa { fill: var(--accent); opacity: 0; animation: aperture .6s ease 1.32s forwards; }
+
+.lens-cap { animation: cap-down .92s cubic-bezier(.22,1,.36,1) .38s forwards; }
+@keyframes cap-down { to { transform: translateY(14px); } }
+@keyframes aperture { 0% { opacity: 0 } 55% { opacity: 1 } 100% { opacity: .45 } }
+@keyframes splash-out { to { opacity: 0; visibility: hidden; pointer-events: none; } }
+
+.dotmat { --dot: clamp(3px, .46vw, 5px); }
+.dot-row { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, var(--dot));
+  grid-auto-columns: var(--dot); gap: 1px; }
+.dot { width: var(--dot); height: var(--dot); background: var(--fg);
+  opacity: .05; transform: scale(.35); }
+.dot.on { animation: dot-on .26s steps(3, end) var(--d) forwards; }
+@keyframes dot-on { to { opacity: var(--o); transform: none; } }
+.splash-skip { font: 12px var(--font-mono); letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); opacity: 0;
+  max-width: 100%; padding-inline: 16px; text-align: center;
+  animation: fade-in .4s ease .6s forwards; }
+@keyframes fade-in { to { opacity: 1; } }
+#write-confirm, #patch-confirm, #patch-success { width: min(620px, calc(100vw - 40px)); max-height: 85vh; overflow: auto;
+  background: var(--bg); color: var(--fg); border: 2px solid var(--fg); padding: 24px; }
+#write-confirm::backdrop, #patch-confirm::backdrop, #patch-success::backdrop { background: rgb(0 0 0 / .8); }
+#write-confirm li, #patch-confirm li { margin-block: 8px; overflow-wrap: anywhere; }
+#panel-patch:not([data-model="lightning"]) > .pane { display: none; }
+.patch-model-picker { grid-column: 1 / -1; align-self: center; justify-self: center;
+  width: min(680px, 100%); padding: var(--gap-xl); }
+.patch-model-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--gap-md); margin-top: var(--gap-xl); }
+.patch-model-options .btn { min-height: 110px; font-size: 19px; flex-direction: column; }
+.patch-model-options small { font-size: 12px; font-weight: normal; color: var(--muted); }
+.patch-model-options .btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+#patch-success { border: 3px solid var(--accent); padding: 28px; }
+#patch-success h2 { color: var(--accent); font-size: 30px; line-height: 1.25; }
+#patch-success ol { margin-block: 22px; padding-left: 26px; font-size: 18px; }
+#patch-success li { margin-block: 12px; }
+#patch-success-warning { border: 2px solid var(--warn); padding: 12px; color: var(--warn); }
+#patch-success-backup { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+
+<div class="pixel-decor" id="pixel-decor" aria-hidden="true"></div>
+
+<!-- 启动序列：镜头盖划开 → 点阵扫字 → 进入主页（可跳过；重播只重播视觉） -->
+<div class="splash" id="splash" aria-hidden="true">
+  <div class="splash-pixels" id="splash-pixels"></div>
+  <div class="cam" aria-hidden="true">
+    <svg viewBox="0 0 26 40" preserveAspectRatio="xMidYMid meet" role="presentation">
+      <g class="body">
+        <rect class="c-pm" x="9" y="0" width="8" height="1"/>
+        <rect class="c-pm" x="6" y="1" width="5" height="1"/>
+        <rect class="c-pl" x="11" y="1" width="4" height="1"/>
+        <rect class="c-pm" x="15" y="1" width="5" height="1"/>
+        <rect class="c-pm" x="4" y="2" width="18" height="1"/>
+        <rect class="c-pm" x="2" y="3" width="5" height="1"/>
+        <rect class="c-pb" x="7" y="3" width="12" height="1"/>
+        <rect class="c-pm" x="19" y="3" width="5" height="1"/>
+        <rect class="c-pm" x="2" y="4" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="4" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="4" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="5" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="5" width="5" height="1"/>
+        <rect class="c-pm" x="10" y="5" width="6" height="1"/>
+        <rect class="c-pb" x="16" y="5" width="5" height="1"/>
+        <rect class="c-pm" x="21" y="5" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="6" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="6" width="4" height="1"/>
+        <rect class="c-pm" x="9" y="6" width="1" height="1"/>
+        <rect class="c-pl" x="10" y="6" width="6" height="1"/>
+        <rect class="c-pm" x="16" y="6" width="1" height="1"/>
+        <rect class="c-pb" x="17" y="6" width="4" height="1"/>
+        <rect class="c-pm" x="21" y="6" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="7" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="7" width="3" height="1"/>
+        <rect class="c-pm" x="8" y="7" width="1" height="1"/>
+        <rect class="c-pl" x="9" y="7" width="1" height="1"/>
+        <rect class="c-pr" x="10" y="7" width="2" height="1"/>
+        <rect class="c-pg" x="12" y="7" width="2" height="1"/>
+        <rect class="c-pr" x="14" y="7" width="2" height="1"/>
+        <rect class="c-pl" x="16" y="7" width="1" height="1"/>
+        <rect class="c-pm" x="17" y="7" width="1" height="1"/>
+        <rect class="c-pb" x="18" y="7" width="3" height="1"/>
+        <rect class="c-pm" x="21" y="7" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="8" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="8" width="2" height="1"/>
+        <rect class="c-pm" x="7" y="8" width="1" height="1"/>
+        <rect class="c-pl" x="8" y="8" width="1" height="1"/>
+        <rect class="c-pr" x="9" y="8" width="1" height="1"/>
+        <rect class="c-pg" x="10" y="8" width="6" height="1"/>
+        <rect class="c-pr" x="16" y="8" width="1" height="1"/>
+        <rect class="c-pl" x="17" y="8" width="1" height="1"/>
+        <rect class="c-pm" x="18" y="8" width="1" height="1"/>
+        <rect class="c-pb" x="19" y="8" width="2" height="1"/>
+        <rect class="c-pm" x="21" y="8" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="9" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="9" width="1" height="1"/>
+        <rect class="c-pm" x="6" y="9" width="1" height="1"/>
+        <rect class="c-pl" x="7" y="9" width="1" height="1"/>
+        <rect class="c-pr" x="8" y="9" width="1" height="1"/>
+        <rect class="c-pg" x="9" y="9" width="2" height="1"/>
+        <rect class="c-pr" x="11" y="9" width="2" height="1"/>
+        <rect class="c-pg" x="13" y="9" width="4" height="1"/>
+        <rect class="c-pr" x="17" y="9" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="9" width="1" height="1"/>
+        <rect class="c-pm" x="19" y="9" width="1" height="1"/>
+        <rect class="c-pb" x="20" y="9" width="1" height="1"/>
+        <rect class="c-pm" x="21" y="9" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="10" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="10" width="1" height="1"/>
+        <rect class="c-pm" x="6" y="10" width="1" height="1"/>
+        <rect class="c-pl" x="7" y="10" width="1" height="1"/>
+        <rect class="c-pr" x="8" y="10" width="1" height="1"/>
+        <rect class="c-pg" x="9" y="10" width="8" height="1"/>
+        <rect class="c-pr" x="17" y="10" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="10" width="1" height="1"/>
+        <rect class="c-pm" x="19" y="10" width="1" height="1"/>
+        <rect class="c-pb" x="20" y="10" width="1" height="1"/>
+        <rect class="c-pm" x="21" y="10" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="11" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="11" width="1" height="1"/>
+        <rect class="c-pm" x="6" y="11" width="1" height="1"/>
+        <rect class="c-pl" x="7" y="11" width="1" height="1"/>
+        <rect class="c-pg" x="8" y="11" width="10" height="1"/>
+        <rect class="c-pl" x="18" y="11" width="1" height="1"/>
+        <rect class="c-pm" x="19" y="11" width="1" height="1"/>
+        <rect class="c-pb" x="20" y="11" width="1" height="1"/>
+        <rect class="c-pm" x="21" y="11" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="12" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="12" width="1" height="1"/>
+        <rect class="c-pm" x="6" y="12" width="1" height="1"/>
+        <rect class="c-pl" x="7" y="12" width="1" height="1"/>
+        <rect class="c-pg" x="8" y="12" width="10" height="1"/>
+        <rect class="c-pl" x="18" y="12" width="1" height="1"/>
+        <rect class="c-pm" x="19" y="12" width="1" height="1"/>
+        <rect class="c-pb" x="20" y="12" width="1" height="1"/>
+        <rect class="c-pm" x="21" y="12" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="13" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="13" width="1" height="1"/>
+        <rect class="c-pm" x="6" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="7" y="13" width="1" height="1"/>
+        <rect class="c-pr" x="8" y="13" width="1" height="1"/>
+        <rect class="c-pg" x="9" y="13" width="8" height="1"/>
+        <rect class="c-pr" x="17" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="13" width="1" height="1"/>
+        <rect class="c-pm" x="19" y="13" width="1" height="1"/>
+        <rect class="c-pb" x="20" y="13" width="1" height="1"/>
+        <rect class="c-pm" x="21" y="13" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="14" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="14" width="1" height="1"/>
+        <rect class="c-pm" x="6" y="14" width="1" height="1"/>
+        <rect class="c-pl" x="7" y="14" width="1" height="1"/>
+        <rect class="c-pr" x="8" y="14" width="1" height="1"/>
+        <rect class="c-pg" x="9" y="14" width="8" height="1"/>
+        <rect class="c-pr" x="17" y="14" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="14" width="1" height="1"/>
+        <rect class="c-pm" x="19" y="14" width="1" height="1"/>
+        <rect class="c-pb" x="20" y="14" width="1" height="1"/>
+        <rect class="c-pm" x="21" y="14" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="15" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="15" width="2" height="1"/>
+        <rect class="c-pm" x="7" y="15" width="1" height="1"/>
+        <rect class="c-pl" x="8" y="15" width="1" height="1"/>
+        <rect class="c-pr" x="9" y="15" width="1" height="1"/>
+        <rect class="c-pg" x="10" y="15" width="6" height="1"/>
+        <rect class="c-pr" x="16" y="15" width="1" height="1"/>
+        <rect class="c-pl" x="17" y="15" width="1" height="1"/>
+        <rect class="c-pm" x="18" y="15" width="1" height="1"/>
+        <rect class="c-pb" x="19" y="15" width="2" height="1"/>
+        <rect class="c-pm" x="21" y="15" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="16" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="16" width="3" height="1"/>
+        <rect class="c-pm" x="8" y="16" width="1" height="1"/>
+        <rect class="c-pl" x="9" y="16" width="1" height="1"/>
+        <rect class="c-pr" x="10" y="16" width="2" height="1"/>
+        <rect class="c-pg" x="12" y="16" width="2" height="1"/>
+        <rect class="c-pr" x="14" y="16" width="2" height="1"/>
+        <rect class="c-pl" x="16" y="16" width="1" height="1"/>
+        <rect class="c-pm" x="17" y="16" width="1" height="1"/>
+        <rect class="c-pb" x="18" y="16" width="3" height="1"/>
+        <rect class="c-pm" x="21" y="16" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="17" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="17" width="4" height="1"/>
+        <rect class="c-pm" x="9" y="17" width="1" height="1"/>
+        <rect class="c-pl" x="10" y="17" width="6" height="1"/>
+        <rect class="c-pm" x="16" y="17" width="1" height="1"/>
+        <rect class="c-pb" x="17" y="17" width="4" height="1"/>
+        <rect class="c-pm" x="21" y="17" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="18" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="18" width="5" height="1"/>
+        <rect class="c-pm" x="10" y="18" width="6" height="1"/>
+        <rect class="c-pb" x="16" y="18" width="5" height="1"/>
+        <rect class="c-pm" x="21" y="18" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="19" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="19" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="19" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="20" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="20" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="20" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="21" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="21" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="21" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="22" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="22" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="22" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="23" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="23" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="23" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="24" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="24" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="24" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="25" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="25" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="25" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="26" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="26" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="26" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="27" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="27" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="27" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="28" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="28" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="28" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="29" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="29" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="29" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="30" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="30" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="30" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="31" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="31" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="31" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="32" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="32" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="32" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="33" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="33" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="33" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="34" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="34" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="34" width="3" height="1"/>
+        <rect class="c-pm" x="2" y="35" width="3" height="1"/>
+        <rect class="c-pb" x="5" y="35" width="16" height="1"/>
+        <rect class="c-pm" x="21" y="35" width="3" height="1"/>
+        <rect class="c-pm" x="4" y="36" width="18" height="1"/>
+        <rect class="c-pm" x="6" y="37" width="14" height="1"/>
+        <rect class="c-pm" x="8" y="38" width="8" height="1"/>
+        <rect class="c-pr" x="10" y="8" width="2" height="1"/>
+        <rect class="c-pa" x="12" y="11" width="2" height="2"/>
+      </g>
+      <g class="lens-cap">
+        <rect class="c-ph" x="5" y="5" width="16" height="18"/>
+        <rect class="c-pm" x="6" y="6" width="14" height="1"/>
+        <rect class="c-pm" x="6" y="6" width="1" height="16"/>
+        <rect class="c-pm" x="19" y="6" width="1" height="16"/>
+        <rect class="c-pm" x="6" y="21" width="14" height="1"/>
+        <rect class="c-pl" x="8" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="9" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="8" y="14" width="1" height="1"/>
+        <rect class="c-pl" x="10" y="14" width="1" height="1"/>
+        <rect class="c-pl" x="8" y="15" width="1" height="1"/>
+        <rect class="c-pl" x="10" y="15" width="1" height="1"/>
+        <rect class="c-pl" x="8" y="16" width="1" height="1"/>
+        <rect class="c-pl" x="10" y="16" width="1" height="1"/>
+        <rect class="c-pl" x="8" y="17" width="1" height="1"/>
+        <rect class="c-pl" x="9" y="17" width="1" height="1"/>
+        <rect class="c-pl" x="12" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="14" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="12" y="14" width="1" height="1"/>
+        <rect class="c-pl" x="14" y="14" width="1" height="1"/>
+        <rect class="c-pl" x="13" y="15" width="1" height="1"/>
+        <rect class="c-pl" x="12" y="16" width="1" height="1"/>
+        <rect class="c-pl" x="14" y="16" width="1" height="1"/>
+        <rect class="c-pl" x="12" y="17" width="1" height="1"/>
+        <rect class="c-pl" x="14" y="17" width="1" height="1"/>
+        <rect class="c-pl" x="16" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="17" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="13" width="1" height="1"/>
+        <rect class="c-pl" x="16" y="14" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="14" width="1" height="1"/>
+        <rect class="c-pl" x="16" y="15" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="15" width="1" height="1"/>
+        <rect class="c-pl" x="16" y="16" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="16" width="1" height="1"/>
+        <rect class="c-pl" x="16" y="17" width="1" height="1"/>
+        <rect class="c-pl" x="17" y="17" width="1" height="1"/>
+        <rect class="c-pl" x="18" y="17" width="1" height="1"/>
+        <rect class="c-pl" x="11" y="19" width="4" height="1"/>
+      </g>
+    </svg>
+  </div>
+  <div class="dotmat" id="dotmat"></div>
+  <div class="splash-skip">点击任意处跳过</div>
+</div>
+
+<div class="scanlines" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<input class="menu-radio" type="radio" name="menu" id="tab-import" checked>
+<input class="menu-radio" type="radio" name="menu" id="tab-patch">
+<input class="menu-radio" type="radio" name="menu" id="tab-about">
+
+<div class="app">
+  <main>
+    <div class="wrap">
+      <div class="shell">
+
+        <!-- ── 第 1 栏：菜单 ─────────────────────────── -->
+        <aside class="menu" aria-label="主菜单">
+          <div class="menu-head"><span class="brand">DXO-ONE-XLAB</span><span class="idx">MENU / 03</span></div>
+          <div class="menu-status"><span class="status-chip status-chip--off" id="card-chip">NO CARD</span></div>
+          <label class="menu-row" for="tab-import">
+            <span class="n">01</span><span class="t">导入滤镜</span><span class="s">IMPORT LUT · 默认页</span>
+          </label>
+          <label class="menu-row" for="tab-patch">
+            <span class="n">02</span><span class="t">更新补丁</span><span class="s">PATCH · 完整版一键安装</span>
+          </label>
+          <label class="menu-row" for="tab-about">
+            <span class="n">03</span><span class="t">关于我们</span><span class="s">ABOUT · 版本与边界</span>
+          </label>
+          <div class="menu-foot">
+            点击菜单切换 · 键盘 Tab 可达
+          </div>
+        </aside>
+
+        <div class="workspace">
+
+          <!-- ══ 面板 01 · 导入滤镜 ══════════════════ -->
+          <section class="panel" id="panel-import" aria-label="导入滤镜">
+            <div class="pane pane-op">
+              <div class="pane-head">
+                <span class="eyebrow role-in">EDIT / 编辑区</span>
+                <h2>导入滤镜</h2>
+                <p class="meta">把 <span class="num">.cube</span> 转成相机 CC 表（2³–256³ → 16³），选择后立即入库。</p>
+              </div>
+              <div class="drop" id="drop" title="支持 .cube / .3dl / .csp / Hald 图像（png/jpg/tif）；从 Finder 拖入或点击选择，逐文件报告结果">
+                <h3>拖入 .cube，或点击选择</h3>
+                <button class="btn btn-primary btn-arrow ic-import" id="btn-pick" type="button">选择 LUT 文件</button>
+              </div>
+              <input type="file" id="lut-file" multiple accept=".cube,.3dl,.csp,.png,.jpg,.jpeg,.tif,.tiff" hidden>
+<div id="toasts" aria-live="polite"></div>
+              <div class="pane-section" id="editor-sec" title="参数作用于当前选中项，保存后入库；「存为默认」复制选中项参数，仅影响之后导入的新文件（本次会话）">
+                <div class="sec-head sec-head--stack">
+                  <span class="cap">参数 / PARAMETERS · 选中项</span>
+                  <span class="meta" id="def-line">导入默认 —</span>
+                </div>
+                <div class="field">
+                  <label for="fname">预览备注 / PREVIEW NOTE</label>
+                  <input type="text" id="fname" disabled placeholder="英文或数字，最多 64 字符" aria-describedby="fname-help"
+                    title="仅本次预览使用，不改变滤镜原名或相机名称">
+                  <p class="meta" id="fname-help">仅本次预览使用。要改相机里的名称，请加入卡清单后，在右侧「相机名称」中设置。<a href="#tf-sec">前往卡内清单 →</a></p>
+                </div>
+                <div class="row-2">
+                  <div class="field">
+                    <label>影调 / TONE</label>
+                    <div class="seg" role="group" aria-label="影调">
+                      <input type="radio" name="tone" id="t1" value="pass" checked><label for="t1">直出</label>
+                      <input type="radio" name="tone" id="t2" value="neutral"><label for="t2">中灰</label>
+                      <input type="radio" name="tone" id="t3" value="blend"><label for="t3">混合</label>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="strength">强度 / STRENGTH</label>
+                    <div class="slider-row">
+                      <input class="range" type="range" id="strength" min="0" max="1" step="0.05" value="0.65">
+                      <span class="range-val num" id="strength-val">0.65</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="tools" style="margin-top:var(--gap-md); justify-content:space-between; min-height:34px">
+                  <span class="tools">
+                    <button class="btn btn-ghost btn--sm ic-default" id="btn-savedef" type="button" disabled
+                      title="把选中项参数存为导入默认，仅影响之后导入的新文件（本次会话）">存为默认</button>
+                    <button class="btn btn-secondary btn--sm ic-save" id="btn-save" type="button" disabled
+                      title="把未保存改动写回本地库（失败保留，可重试）">保存改动</button>
+                  </span>
+                </div>
+              </div>
+              <div class="pane-section">
+                <div class="sec-head list-head">
+                  <span class="cap">滤镜库 / LIBRARY</span>
+                  <span class="tools">
+                    <span class="meta" id="lib-count">— 条 · — 在卡清单</span>
+                    <button class="btn btn-secondary btn--sm btn-danger" id="btn-clear" type="button"
+                      title="把全部滤镜移入回收站（可恢复），需二次确认">清空库</button>
+                    <button class="btn btn-secondary btn--sm ic-trash btn-toggle" id="btn-trash" type="button" aria-expanded="false"
+                      title="展开/收起回收站（可恢复）；永久删除需二次确认">回收站</button>
+                  </span>
+                </div>
+                <div class="log-list" id="lib-list"></div>
+              </div>
+              <div class="pane-section" id="trash-sec" hidden>
+                <div class="sec-head">
+                  <span class="cap">回收站 / TRASH · 可恢复</span>
+                  <button class="btn btn-secondary btn--sm btn-danger" id="btn-trash-empty" type="button"
+                    title="永久删除回收站全部条目，需二次确认">清空回收站</button>
+                </div>
+                <div class="log-list" id="trash-list"></div>
+              </div>
+            </div>
+
+            <div class="pane pane-result">
+              <div class="pane-head">
+                <span class="eyebrow role-out">VIEW / 查看区</span>
+                <h2>预览与结果</h2>
+              </div>
+              <div class="pane-section" style="margin-top:0">
+                <div class="cap">对比 / COMPARE · <span id="pv-mode-label">与写卡共用滤镜表 · 色彩待实拍核对</span></div>
+                <div style="display:flex;gap:var(--gap-xs);flex-wrap:wrap;align-items:center">
+                  <div class="segmode" role="group" aria-label="对比模式（二选一）">
+                    <button class="btn btn-secondary btn--sm" id="pv-mode-split" type="button" aria-pressed="true">并排</button>
+                    <button class="btn btn-secondary btn--sm" id="pv-mode-slider" type="button" aria-pressed="false">拖动对比</button>
+                  </div>
+                </div>
+              </div>
+              <div id="pv-viewport" aria-label="预览缩放区（双指捏合或 Ctrl+滚轮缩放，双指滑动平移）" style="margin-top:var(--gap-sm)">
+              <div class="pv-split" id="pv-split">
+                <div class="pv-half">
+                  <div class="pv-box"><div class="pv-frame" id="pv-f-before"><img id="pv-before" alt="原图预览"><span class="pv-tag pv-tag--l" id="pv-tag-before" hidden>前</span></div><span class="meta pv-ph" id="pv-before-ph">选择滤镜后显示原图</span></div>
+                </div>
+                <div class="pv-half">
+                  <div class="pv-box"><div class="pv-frame" id="pv-f-after"><img id="pv-after" alt="加滤镜后预览"><span class="pv-tag pv-tag--r" id="pv-tag-after" hidden>后</span></div><span class="meta pv-ph" id="pv-after-ph">预览服务就绪 · 选择滤镜后渲染</span></div>
+                </div>
+              </div>
+              <div class="pv-box pv-slider" id="pv-slider" hidden tabindex="0" role="slider" aria-label="对比分界线（方向键微调，Shift 粗调）" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-orientation="horizontal">
+                <div class="pv-frame" id="pv-f-slider">
+                  <img id="pv-s-before" alt="原图预览（拖动对比）">
+                  <img id="pv-s-after" alt="加滤镜后预览（拖动对比）" style="position:absolute;inset:0">
+                  <div class="pv-handle" id="pv-handle"></div>
+                  <span class="pv-tag pv-tag--l" id="pv-tag-s-before" hidden>前</span>
+                  <span class="pv-tag pv-tag--r" id="pv-tag-s-after" hidden>后</span>
+                </div>
+                <span class="meta pv-ph" id="pv-slider-ph">选择滤镜后显示拖动对比</span>
+              </div>
+              </div>
+              <div style="display:flex;gap:var(--gap-xs);flex-wrap:wrap;align-items:center;margin-top:var(--gap-sm)">
+                <button class="btn btn-secondary btn--sm ic-photo" id="pv-pick" type="button">选择预览照片</button>
+                <button class="btn btn-secondary btn--sm ic-reset" id="pv-reset" type="button">重置色卡</button>
+                <input type="file" id="pv-file" accept="image/*" hidden>
+                <span class="meta" id="pv-img-label">内置色卡</span>
+              </div>
+              <div style="display:flex;justify-content:flex-end;align-items:center;gap:var(--gap-sm);margin-top:var(--gap-xs)">
+                <span class="meta">缩放 / ZOOM</span>
+                <button class="btn btn-secondary btn--sm" id="pv-zoom-out" type="button" aria-label="缩小（÷1.25）" title="缩小">−</button>
+                <input type="range" id="pv-zoom" min="1" max="4" step="0.05" value="1" aria-label="预览放大倍率（1–4 倍）" style="width:180px">
+                <button class="btn btn-secondary btn--sm" id="pv-zoom-in" type="button" aria-label="放大（×1.25）" title="放大">＋</button>
+                <span class="meta" id="pv-zoom-val" style="min-width:48px;text-align:right">100%</span>
+                <button class="btn btn-secondary btn--sm" id="pv-zoom-reset" type="button">重置 1:1</button>
+              </div>
+              <!-- 全页唯一白卡：TF 卡区域（选卡 + 只读状态 + 当前滤镜摘要） -->
+              <aside class="card" style="margin-top:var(--gap-lg)" aria-label="TF 卡" id="filter-card">
+                <span class="pill crt">TF CARD</span>
+                <div class="tf-picker">
+                  <select id="tf-select" aria-label="选择存储卡"><option value="">扫描存储卡…</option></select>
+                  <button class="btn btn--sm" id="tf-refresh" type="button" title="重新扫描 /Volumes 下的外置卷与相机卡">↻ 刷新</button>
+                </div>
+                <p class="meta" id="tf-status" style="margin-top:var(--gap-xs)">扫描存储卡…</p>
+                <div class="liner"><span class="meta" id="tf-cur">未选中滤镜 · 点击库行或卡清单行查看</span></div>
+              </aside>
+              <div class="pane-section" id="tf-sec">
+                <div class="sec-head list-head">
+                  <span class="cap">卡内清单 / CARD LIST</span>
+                  <span class="tools">
+                    <span class="meta" id="tf-count">— 档</span>
+                    <button class="btn btn-secondary btn--sm" id="tf-write" type="button"
+                      title="只读预演：列出生成包与 ph_menu 重建动作，并离线预演内置重建器产物；不写卡">写入预演</button>
+                    <button class="btn btn--sm" id="tf-apply" type="button"
+                      title="把卡清单写入存储卡（新包 + ph_menu 内置重建，先备份）。核对目标卡和文件后，在 App 内确认本次写入">写入存储卡</button>
+                  </span>
+                </div>
+                <div class="name-help" id="tf-name-help">
+                  <p class="meta">相机里显示什么名称？插入存储卡 → 从左侧加入卡清单 → 修改下方「相机名称」→ 写入存储卡。</p>
+                  <p class="meta">最多 6 个字符，小写会转为大写。可用字母 <code>ABEFGHIKLNOPRSTUVWY</code>、数字 <code>0 2 5</code> 和 <code>-</code>，例如 <code>FLAT</code>、<code>B-W</code>。</p>
+                  <p class="meta">修改后按 Enter 或点到别处保存；完成写卡后才在相机上生效。原有卡内滤镜的名称暂为只读。</p>
+                </div>
+                <div class="log-list" id="tf-list"></div>
+                <p class="meta" id="tf-note" style="margin-top:var(--gap-xs)">工作清单：增删 / 排序即时存于本地，不写卡；卡上 ph_menu 变化时自动按卡重建。ph_menu 由 app 内置重建器生成（以卡上当前 ph_menu 为模板）；真实写卡须在 App 内确认本次变更。</p>
+              </div>
+              <div class="pane-section sink">
+                <div class="cap">结果日志 / OUTPUT LOG</div>
+                <div class="log-panel" id="log-import"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ══ 面板 02 · 更新补丁 ══════════════════ -->
+          <section class="panel" id="panel-patch" aria-label="更新补丁">
+            <div class="patch-model-picker" id="patch-model-picker">
+              <span class="eyebrow role-in">PATCH / 更新补丁</span>
+              <h2 style="margin-top:var(--gap-lg)">先选择你的相机类型</h2>
+              <p class="lead">请按机身原本的型号选择。L 口改装成 C 口后，仍使用 L 口补丁。</p>
+              <div class="patch-model-options">
+                <button class="btn" id="patch-model-lightning" type="button" aria-pressed="false">L口 / L口改C口</button>
+                <button class="btn" id="patch-model-usbc" type="button" aria-pressed="false"><span>纯C口</span><small>开发测试中，敬请期待</small></button>
+              </div>
+            </div>
+            <div class="pane pane-op">
+              <div class="pane-head">
+                <span class="eyebrow role-in">EDIT / 编辑区</span>
+                <h2>更新补丁</h2>
+                <button class="btn btn-ghost btn--sm" id="patch-model-change" type="button">重新选择机型</button>
+                <p class="meta" id="patch-version">正在校验内置完整版…</p>
+                <p class="meta">适用 L口 / L口改C口机身 · 固件 3.2.0（ecef5ef809）。机身固件无法通过读卡器自动识别，请在相机中核对。</p>
+              </div>
+              <div class="pane-section">
+                <div class="cap">目标卡 / TARGET · 只读探测</div>
+                <label for="patch-select" class="meta">选择相机存储卡</label>
+                <select id="patch-select"><option value="">扫描存储卡…</option></select>
+                <button class="btn btn-ghost" id="patch-refresh" type="button">重新扫描</button>
+                <ul class="checklist" id="card-list">
+                  <li><span>状态</span><span>探测中…</span></li>
+                </ul>
+                <p class="meta" id="patch-status" role="status" aria-live="polite">选择存储卡后可预检或一键安装。</p>
+                <div class="tools" style="margin-top:var(--gap-md)">
+                  <button class="btn" type="button" id="patch-check" disabled>只读预检</button>
+                  <button class="btn btn-primary btn-arrow" type="button" id="patch-install" disabled>一键安装完整版</button>
+                </div>
+              </div>
+              <div class="pane-section">
+                <div class="cap">内置整包 / MANIFEST · BUILD 72</div>
+                <ul class="checklist">
+                  <li><span>AUTOEXEC.ASH</span><span>启动装载器</span></li>
+                  <li><span>PH_PROBE / PH_MENU</span><span>探针 + 菜单段</span></li>
+                  <li><span>LUT_*.BIN × 11</span><span>含 INSTA · 五槽包</span></li>
+                  <li><span>DXOT / TOUCH_PREFS</span><span>触屏依赖 + 默认设置</span></li>
+                  <li><span>PH_DIAG/</span><span>自动补齐诊断目录</span></li>
+                </ul>
+              </div>
+              <div class="pane-section">
+                <div class="cap">安装规则 / INSTALL</div>
+                <p class="meta">恢复整包 11 档菜单；同名补丁及滤镜文件会替换。自定义菜单与本地待写卡清单会重置，未知文件保留。只更新自己的滤镜，请使用「导入滤镜」。</p>
+                <p class="meta">照片 DCIM、已有触屏设置、滤镜记忆 ph_last.bin 均保留；首次安装才补充默认触屏设置。</p>
+                <details><summary class="meta">触屏依赖来源与说明</summary><pre class="meta" id="patch-credits" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
+              </div>
+
+            </div>
+
+            <div class="pane pane-result">
+              <div class="pane-head">
+                <span class="eyebrow role-out">VIEW / 查看区</span>
+                <h2>预览与结果</h2>
+              </div>
+              <div class="pane-section" style="margin-top:0">
+                <div class="cap">完整版滤镜 / BUNDLED FILTERS · 11 档</div>
+                <div class="ring-box">
+                  <div class="ring" id="menu-ring"></div>
+                  <p class="meta" style="margin:var(--gap-md) 0 0" id="ring-note">以上按随包文件名展示。安装后保留上次滤镜记忆；记忆缺失或越界时回到 GOLD200。</p>
+                </div>
+              </div>
+              <div class="pane-section">
+                <div class="cap">本次预检 / FILE CHECK</div>
+                <ul class="checklist" id="patch-files"><li><span>等待预检</span><span>此时不写卡</span></li></ul>
+                <p class="meta" style="margin:var(--gap-sm) 0 0">确认后先在本机备份，再逐文件写入、落盘并回读校验。遇到写入失败自动尝试回滚；意外拔卡或断电可能需要用本地备份恢复，请等待完成。</p>
+              </div>
+              <div class="pane-section sink">
+                <div class="cap">结果日志 / OUTPUT LOG</div>
+                <div class="log-panel" id="log-patch"></div>
+                <p class="meta" style="margin-top:var(--gap-sm)">完成后在访达中安全推出存储卡，再装回相机；开机等约 3 秒再触屏。</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ══ 面板 03 · 关于我们 ═══════════════════ -->
+          <section class="panel" id="panel-about" aria-label="关于我们">
+            <div class="pane pane-op">
+              <div class="pane-head">
+                <span class="eyebrow role-in">READ / 项目信息</span>
+                <h2>关于我们</h2>
+                <p class="meta">项目与用途 · 版本来自构建元数据。</p>
+              </div>
+              <div class="pane-section" style="margin-top:0">
+                <div class="cap">项目 / PROJECT</div>
+                <p class="lead">
+                  「DXO-ONE-XLAB」是为 DxO ONE 打造的本地工具，让这台小相机继续探索新的拍摄可能。
+                  从 <span class="num">.cube</span> 滤镜导入、色彩预览到滤镜写卡与补丁安装，把常用操作集中在一起。
+                </p>
+                <p class="lead" style="margin-top:var(--gap-md)">滤镜只是起点。我们会围绕 DxO ONE 的拍摄体验，持续探索更多实用功能，让熟悉的相机也能带来新的乐趣。</p>
+                <ul class="checklist" style="margin-top:var(--gap-lg)" id="about-list">
+                  <li><span>项目 / PROJECT</span><span>DXO-ONE-XLAB</span></li>
+                  <li><span>相机 / 固件</span><span>DXO ONE · 3.2.0 (ecef5ef809) · Lightning</span></li>
+                  <li><span>当前补丁</span><span>BUILD 72</span></li>
+                  <li><span>CC 表</span><span>17 536 B × 5 槽</span></li>
+                  <li><span>桌面版本</span><span id="about-ver">—</span></li>
+                  <li><span>数据库目录</span><span id="about-db">—</span></li>
+                </ul>
+              </div>
+              <div class="pane-section">
+                <div class="cap">特别致谢 / THANKS</div>
+                <p class="lead">感谢 <strong>@林达</strong> 创作的 DxO ONE v26 触屏固件，为本项目提供了触屏交互基础。</p>
+                <p class="meta">同时感谢 Eli 完成 iOS / Lightning 固件移植。触屏运行时依赖的权利归原作者，来源与说明可在「更新补丁」中查看。</p>
+              </div>
+            </div>
+            <div class="pane pane-result">
+              <div class="pane-head">
+                <span class="eyebrow role-out">READ / 边界与许可</span>
+                <h2>边界与许可</h2>
+              </div>
+              <div class="pane-section" style="margin-top:0">
+                <div class="cap">安全边界 / SAFETY</div>
+                <ul class="checklist">
+                  <li><span>DCIM</span><span>绝不写入</span></li>
+                  <li><span>TOUCH_PREFS</span><span>绝不覆盖</span></li>
+                  <li><span>写卡授权</span><span>每次须用户明确授权</span></li>
+                  <li><span>当前版本</span><span>已接入滤镜写卡与 L 口整包安装</span></li>
+                </ul>
+              </div>
+              <div class="pane-section">
+                <div class="cap">许可 / LICENSE</div>
+                <ul class="checklist">
+                  <li><span>补丁二进制</span><span>ALL RIGHTS RESERVED</span></li>
+                  <li><span>文档</span><span>CC BY-NC 4.0</span></li>
+                  <li><span>BEBAS NEUE / VT323</span><span>OFL 1.1 · 本地打包</span></li>
+                </ul>
+              </div>
+              <div class="pane-section sink">
+                <div class="cap">交付状态 / STATUS</div>
+                <ul class="checklist">
+                  <li><span>桌面功能</span><span>通过（导入/编辑/保存/库管理）</span></li>
+                  <li><span>预览服务</span><span>R3 · 已接入（异步+代次）</span></li>
+                  <li><span>资产导出</span><span>R4 · 离线通过（模拟卷）</span></li>
+                  <li><span>固件部署</span><span>R5 · App 内逐次确认后写入</span></li>
+                  <li><span>实机验收</span><span>未执行</span></li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+        </div><!-- /workspace -->
+      </div><!-- /shell -->
+
+      <div class="save-banner" id="save-banner" hidden>
+        <span class="meta" id="save-banner-msg">—</span>
+        <span class="tools">
+          <button class="btn btn--sm ic-save" id="btn-retry" type="button">重试保存</button>
+          <button class="btn btn--sm btn-danger" id="btn-discard" type="button">放弃改动</button>
+          <button class="btn btn--sm ic-save" id="btn-retry-close" type="button" hidden>重试保存并退出</button>
+          <button class="btn btn--sm btn-danger" id="btn-discard-close" type="button" hidden>放弃改动并退出</button>
+        </span>
+      </div>
+
+      <div class="statusbar">
+        <div class="wrap statusbar-inner">
+          <span class="meta" id="status-main">就绪</span>
+          <span class="meta" id="status-lib">库 — 条</span>
+          <span class="meta" id="status-dirty" hidden>未保存 0</span>
+          <span class="meta" id="status-card">NO CARD</span>
+          <button class="btn btn-ghost btn--sm" id="replay" type="button"
+            style="width:auto;min-height:0;margin-left:auto">重播启动动画 ↺</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<dialog id="write-confirm" aria-labelledby="write-confirm-title">
+  <h2 id="write-confirm-title">确认本次写入</h2>
+  <p id="write-confirm-target"></p>
+  <p id="write-confirm-summary"></p>
+  <p class="meta">将修改以下文件；写入前自动备份到本机，失败时回滚本批目标文件。</p>
+  <ul id="write-confirm-files"></ul>
+  <label id="write-touch-label" hidden><input type="checkbox" id="write-touch"> 同时同步触屏切换（dxot/a.bin）</label>
+  <p class="meta">请保持存储卡连接，完成后再安全弹出。</p>
+  <div class="tools">
+    <button class="btn" id="write-cancel" type="button">取消</button>
+    <button class="btn btn-primary" id="write-accept" type="button">确认并写入</button>
+  </div>
+</dialog>
+<dialog id="patch-confirm" aria-labelledby="patch-confirm-title">
+  <h2 id="patch-confirm-title">安装 Lightning 完整版 · Build 72</h2>
+  <p id="patch-confirm-target"></p>
+  <p id="patch-confirm-summary"></p>
+  <p>将恢复随包的 11 档菜单并重置本地待写卡清单；同名补丁和滤镜会替换。已有触屏设置、照片、滤镜记忆及未知文件保留。</p>
+  <ul id="patch-confirm-files"></ul>
+  <label><input type="checkbox" id="patch-compatible"> 我已在相机中核对：L口 / L口改C口机身，固件为 3.2.0（ecef5ef809），并同意上述替换。</label>
+  <p class="meta">请保持卡连接，完成后安全弹出。取消不会改动存储卡。</p>
+  <div class="tools">
+    <button class="btn" id="patch-cancel" type="button">取消</button>
+    <button class="btn btn-primary" id="patch-accept" type="button" disabled>确认安装</button>
+  </div>
+</dialog>
+<dialog id="patch-success" aria-labelledby="patch-success-title" aria-describedby="patch-success-summary">
+  <h2 id="patch-success-title">✓ 完整版安装完成</h2>
+  <p id="patch-success-summary"></p>
+  <p id="patch-success-warning" hidden></p>
+  <ol>
+    <li><strong>先在访达中安全推出存储卡，再拔卡。</strong></li>
+    <li><strong>装回相机并开机，等待约 3 秒后再触屏。</strong></li>
+  </ol>
+  <p class="meta">照片、已有触屏设置和滤镜记忆已保留。</p>
+  <p class="meta" id="patch-success-backup"></p>
+  <button class="btn btn-primary" id="patch-success-close" type="button">我知道了</button>
+</dialog>
+<script>
+/* ══ 启动序列与像素装饰（样张 v1.5 移植）══
+   重播只重播视觉：重建 splash 节点，不 reload、不清业务状态。 */
+(function () {
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var splash = document.getElementById('splash');
+  var replay = document.getElementById('replay');
+  var splashTemplate = splash ? splash.outerHTML : '';
+
+  function pixels(el, count, maxOp) {
+    if (!el) return;
+    var w = window.innerWidth, h = window.innerHeight, cell = 18, out = [];
+    for (var i = 0; i < count; i++) {
+      var x = Math.floor(Math.random() * Math.ceil(w / cell)) * cell;
+      var y = Math.floor(Math.random() * Math.ceil(h / cell)) * cell;
+      var sz = 8 + Math.floor(Math.random() * 7);
+      var op = (0.02 + Math.random() * maxOp).toFixed(3);
+      out.push('<i class="px" style="left:' + x + 'px;top:' + y + 'px;width:' + sz +
+               'px;height:' + sz + 'px;opacity:' + op + '"></i>');
+    }
+    el.innerHTML = out.join('');
+  }
+  pixels(document.getElementById('pixel-decor'), 240, 0.10);
+
+  var FONT = {
+    'D': ['11110','10001','10001','10001','10001','10001','11110'],
+    'X': ['10001','10001','01010','00100','01010','10001','10001'],
+    'O': ['01110','10001','10001','10001','10001','10001','01110'],
+    'N': ['10001','11001','10101','10011','10001','10001','10001'],
+    'E': ['11111','10000','10000','11110','10000','10000','11111'],
+    'L': ['10000','10000','10000','10000','10000','10000','11111'],
+    'A': ['01110','10001','10001','11111','10001','10001','10001'],
+    'B': ['11110','10001','10001','11110','10001','10001','11110'],
+    '-': ['00000','00000','00000','11110','00000','00000','00000'],
+    ' ': ['00000','00000','00000','00000','00000','00000','00000']
+  };
+  function matrix(text) {
+    var rows = ['','','','','','',''];
+    for (var i = 0; i < text.length; i++) {
+      var g = FONT[text.charAt(i)] || FONT[' '];
+      for (var r = 0; r < 7; r++) rows[r] += g[r] + '0';
+    }
+    return rows;
+  }
+  function buildDotmat(el) {
+    var out = ['<div class="dot-row">'];
+    var g = matrix('DXO-ONE-XLAB'), cols = g[0].length;
+    for (var c = 0; c < cols; c++) {
+      for (var r = 0; r < 7; r++) {
+        var on = g[r].charAt(c) === '1';
+        var d = 1450 + c * 18 + r * 5 + Math.floor(Math.random() * 60);
+        var o = on ? (0.72 + Math.random() * 0.28).toFixed(2) : '';
+        out.push('<i class="dot' + (on ? ' on' : '') + '" style="--d:' + d + 'ms' +
+                 (on ? ';--o:' + o : '') + '"></i>');
+      }
+    }
+    out.push('</div>');
+    el.innerHTML = out.join('');
+  }
+
+  function runSplash(el) {
+    pixels(el.querySelector('#splash-pixels'), 200, 0.22);
+    buildDotmat(el.querySelector('#dotmat'));
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      el.classList.add('done');
+      window.removeEventListener('keydown', finish);
+    }
+    el.addEventListener('click', finish);
+    window.addEventListener('keydown', finish);
+    setTimeout(finish, 4100);
+  }
+
+  function startSplash() {
+    if (reduced) return;
+    var old = document.getElementById('splash');
+    if (old) old.remove();
+    var holder = document.createElement('div');
+    holder.innerHTML = splashTemplate;
+    var el = holder.firstElementChild;
+    document.body.prepend(el);
+    runSplash(el);
+  }
+
+  if (reduced) {
+    if (splash) splash.remove();
+    if (replay) { replay.disabled = true; replay.title = '系统已开启「减少动态效果」'; }
+  } else {
+    runSplash(splash);
+    if (replay) replay.addEventListener('click', startSplash);
+  }
+})();
+
+/* ══ 应用逻辑：真实 IPC 数据（R2：编辑/库管理/保存闭环） ══ */
+(function () {
+  var T = window.__TAURI__ || {};
+  var invoke = T.core ? T.core.invoke
+    : function () { return Promise.reject('IPC 不可用（请在应用窗口内打开）'); };
+  var listen = T.event ? T.event.listen
+    : function () { return Promise.resolve(function () {}); };
+
+  var state = {
+    luts: [],
+    sel: null,                       // {kind:'local',id,num} | {kind:'card',key,num}；num 为预览用 ID
+    dirty: new Set(),                // 未保存的稳定 ID；仅 flush 成功项清除
+    defaults: { tone: 'pass', strength: 0.65, bw: false },  // Web 基线初值，仅本会话
+    trash: [], showTrash: false,
+    pendingClose: false,
+    card: null, info: null, log: [], patchModel: null,
+    cards: [], cardMount: null, tf: null,   // TF 卡区域：卷列表 / 所选挂载点 / 卡内工作清单
+    disp: {}                             // 会话级显示名覆盖（id→名）；库/卡清单原始名不变
+  };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g,
+      function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+  }
+  function $(id) { return document.getElementById(id); }
+  function toneLabel(t) { return { pass: '直出', neutral: '中灰', blend: '混合' }[t] || t; }
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  // ── 日志（真实事件，两个面板同源） ──
+  function log(lv, msg) {
+    var d = new Date();
+    state.log.unshift({ ts: pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()), lv: lv, msg: msg });
+    if (state.log.length > 200) state.log.length = 200;
+    renderLog();
+  }
+  function renderLog() {
+    var html = state.log.map(function (l) {
+      var cls = l.lv === 'FAIL' ? ' lv--fail' : '';
+      return '<div class="log-line"><span class="ts">' + l.ts + '</span><span class="lv' + cls + '">' + esc(l.lv) + '</span><span>' + esc(l.msg) + '</span></div>';
+    }).join('');
+    $('log-import').innerHTML = html;
+    $('log-patch').innerHTML = html;
+  }
+  function setStatus(text) { $('status-main').textContent = text; }
+
+  // ── dirty 状态条 / 保存横幅 ──
+  function renderDirty() {
+    var n = state.dirty.size;
+    $('status-dirty').hidden = n === 0;
+    $('status-dirty').textContent = '未保存 ' + n;
+    $('btn-save').disabled = n === 0;
+  }
+  function showBanner(msg, closeMode) {
+    $('save-banner-msg').textContent = msg;
+    $('save-banner').hidden = false;
+    $('btn-retry').hidden = closeMode;
+    $('btn-discard').hidden = closeMode;
+    $('btn-retry-close').hidden = !closeMode;
+    $('btn-discard-close').hidden = !closeMode;
+  }
+  function hideBanner() { $('save-banner').hidden = true; }
+
+  // ── 保存闭环：仅成功项清 dirty；失败保留可重试 ──
+  var editQueue = Promise.resolve();
+  var editVersions = {}, stagedVersions = {}, editErrors = {};
+  function enqueueEdit(task) {
+    var job = editQueue.then(task);
+    editQueue = job.catch(function () {});
+    return job;
+  }
+  var flushPromise = null;
+  function flushNow() {
+    if (!flushPromise) {
+      flushPromise = doFlush().then(function (ok) { flushPromise = null; return ok; },
+        function (e) { flushPromise = null; throw e; });
+    }
+    return flushPromise;
+  }
+  async function doFlush() {
+    clearTimeout(autoTimer);
+    while (state.dirty.size) {
+      var result;
+      try {
+        result = await enqueueEdit(async function () {
+          // 重试前一次提交失败的最新参数；所有提交与 flush 串行，避免旧请求反盖新值。
+          for (var id of state.dirty) {
+            if (!editErrors[id]) continue;
+            var r = state.luts.find(function (x) { return x.id === id; });
+            if (!r) continue;
+            var version = editVersions[id];
+            var res = await invoke('edit_lut', { id: r.id, name: r.name, tone: r.tone, strength: r.strength, bw: r.bw });
+            stagedVersions[id] = version;
+            if (editVersions[id] === version) { delete editErrors[id]; r.pendingHash = res.hash; }
+          }
+          var snap = Object.assign({}, stagedVersions);
+          return { report: await invoke('flush_edits'), versions: snap };
+        });
+      } catch (e) { showBanner('保存失败：' + e, state.pendingClose); return false; }
+      var rep = result.report;
+      rep.saved.forEach(function (id) {
+        if (editVersions[id] === result.versions[id]) {
+          state.dirty.delete(id);
+          var r = state.luts.find(function (x) { return x.id === id; });
+          if (r) r.editing = false;
+        }
+      });
+      rep.missing.forEach(function (id) { state.dirty.delete(id); delete editErrors[id]; });
+      renderDirty();
+      if (rep.failed.length) {
+        log('FAIL', rep.failed.length + ' 项保存失败，改动保留：' + rep.failed[0].msg);
+        showBanner(rep.failed.length + ' 项保存失败，改动保留（' + rep.failed[0].msg + '）', state.pendingClose);
+        return false;
+      }
+      if (rep.saved.length) log('OK', '保存完成：' + rep.saved.length + ' 项已落盘');
+      await loadLuts();
+    }
+    hideBanner(); syncEditor();
+    return true;
+  }
+  var autoTimer = null;
+  function scheduleAutoFlush() {
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(function () { flushNow(); }, 1200);
+  }
+
+  // ── 库渲染（真实 list_luts 数据；拖拽排序 + 键盘上下移） ──
+  function hash32(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function cardNum(key) { return -(hash32(key) % 1000000000) - 1; }   // 卡源预览用负数 ID，不与库 ID 冲突
+  function hex8(n) { return ('00000000' + (n >>> 0).toString(16)).slice(-8); }
+  function selected() {
+    if (!state.sel) return null;
+    if (state.sel.kind === 'local') return state.luts.find(function (r) { return r.id === state.sel.id; }) || null;
+    var it = state.tf && (state.tf.items || []).find(function (x) { return x.key === state.sel.key; });
+    if (!it) return null;
+    if (it.local_id != null) {
+      var lr = state.luts.find(function (r) { return r.id === it.local_id; });
+      if (lr) return lr;                       // 待写入档：预览/编辑走本地库
+    }
+    return {                                    // 卡上既有档：只读合成记录（Still1 表直出）
+      id: state.sel.num, key: it.key, card: true, locked: true, name: it.name,
+      tone: 'pass', strength: 1, bw: false, source_size: 16, format: 'bin',
+      srcPath: it.card_path, local_id: it.local_id, src: 'TF 卡', export: false, position: 0,
+      hash: it.fp1 != null ? hex8(it.fp1) : '00000000'
+    };
+  }
+  function dispName(r) {
+    if (!r) return '';
+    return (!r.card && state.disp[r.id]) || r.name;
+  }
+  function renderLib() {
+    var box = $('lib-list');
+    var focusId = (document.activeElement && document.activeElement.classList
+      && document.activeElement.classList.contains('log-row')) ? document.activeElement.dataset.id : null;
+    if (!state.luts.length) {
+      box.innerHTML = '<div class="empty-box"><p class="meta">库为空 —— 拖入或点击「选择 LUT 文件」导入 .cube / .3dl / .csp / Hald 图像。</p></div>';
+    } else {
+      box.innerHTML = state.luts.map(function (r) {
+        var sub = r.source_size + '³ · ' + toneLabel(r.tone) + ' · ' + r.strength.toFixed(2)
+          + (r.bw ? ' · 黑白' : '') + (r.locked ? ' · 卡载锁定' : '');
+        var selCls = (state.sel && state.sel.kind === 'local' && state.sel.id === r.id) ? ' log-row--selected' : '';
+        var inCard = !!(state.tf && (state.tf.items || []).some(function (x) { return x.local_id === r.id; }));
+        return '<div class="log-row' + selCls + '" data-id="' + r.id + '" tabindex="0" role="button" draggable="true" aria-label="选择 ' + esc(r.name) + '">'
+          + '<span class="cur-badge"' + (selCls ? '' : ' hidden') + '>当前滤镜</span>'
+          + '<div><div class="title">' + esc(r.name) + '</div><div class="sub">' + esc(sub) + '</div></div>'
+          + '<div class="ops">'
+          + '<button class="btn btn-ghost btn--sm mv-up" type="button" title="上移（键盘替代：聚焦后 Alt+↑）">↑</button>'
+          + '<button class="btn btn-ghost btn--sm mv-down" type="button" title="下移（键盘替代：聚焦后 Alt+↓）">↓</button>'
+          + '<button class="pill imp' + (inCard ? ' pill--on' : '') + '" type="button" title="加入右侧卡清单后，可设置相机名称；点击写入存储卡后生效">' + (inCard ? '已在卡清单' : '加入卡清单') + '</button>'
+          + '<button class="btn btn-ghost btn--sm rm" type="button" title="移入回收站（可恢复）">×</button>'
+          + '</div></div>';
+      }).join('');
+      box.querySelectorAll('.log-row').forEach(function (row) {
+        var id = Number(row.dataset.id);
+        row.addEventListener('click', function (e) {
+          if (e.target.closest('.ops')) return;
+          select(id);
+        });
+        row.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(id); }
+          if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault(); moveSel(id, e.key === 'ArrowUp' ? -1 : 1);
+          }
+        });
+        row.querySelector('.mv-up').addEventListener('click', function (e) { e.stopPropagation(); moveSel(id, -1); });
+        row.querySelector('.mv-down').addEventListener('click', function (e) { e.stopPropagation(); moveSel(id, 1); });
+        row.querySelector('.imp').addEventListener('click', function (e) { e.stopPropagation(); importToCard(id); });
+        row.querySelector('.rm').addEventListener('click', function (e) { e.stopPropagation(); removeItem(id); });
+        row.addEventListener('dragstart', function (e) {
+          e.dataTransfer.setData('text/plain', String(id));
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragover', function (e) { e.preventDefault(); row.classList.add('dragover'); });
+        row.addEventListener('dragleave', function () { row.classList.remove('dragover'); });
+        row.addEventListener('drop', function (e) {
+          e.preventDefault(); row.classList.remove('dragover');
+          var from = Number(e.dataTransfer.getData('text/plain'));
+          if (!from || from === id) return;
+          var ids = state.luts.map(function (r) { return r.id; });
+          var fi = ids.indexOf(from), ti = ids.indexOf(id);
+          if (fi < 0 || ti < 0) return;
+          ids.splice(fi, 1); ids.splice(ti, 0, from);
+          applyOrder(ids);
+        });
+      });
+      if (focusId !== null) {
+        var fr = box.querySelector('.log-row[data-id="' + focusId + '"]');
+        if (fr) fr.focus();
+      }
+    }
+    var nIn = state.luts.filter(function (r) {
+      return state.tf && (state.tf.items || []).some(function (x) { return x.local_id === r.id; });
+    }).length;
+    $('lib-count').textContent = pad2(state.luts.length) + ' 条 · ' + pad2(nIn) + ' 在卡清单';
+    $('status-lib').textContent = '库 ' + state.luts.length + ' 条 · ' + nIn + ' 在卡清单';
+  }
+  function renderSelection() {
+    document.querySelectorAll('#lib-list .log-row, #tf-list .log-row').forEach(function (row) {
+      var sel = state.sel;
+      var active = !!sel && (sel.kind === 'local' ? row.dataset.id === String(sel.id) : row.dataset.key === sel.key);
+      if (row.classList.contains('log-row--selected') === active) return;
+      row.classList.toggle('log-row--selected', active);
+      row.querySelector('.cur-badge').hidden = !active;
+    });
+  }
+  async function select(id) {
+    if ((!state.sel || state.sel.kind !== 'local' || state.sel.id !== id) && !await flushNow()) return;
+    state.sel = { kind: 'local', id: id, num: id };
+    renderSelection(); renderCard(); syncEditor(true);
+    requestPreview();
+  }
+  async function selectCard(key) {
+    var it = state.tf && (state.tf.items || []).find(function (x) { return x.key === key; });
+    if (!it) return;
+    if ((!state.sel || state.sel.kind !== 'card' || state.sel.key !== key) && !await flushNow()) return;
+    state.sel = { kind: 'card', key: key, num: it.local_id != null ? it.local_id : cardNum(key) };
+    renderSelection(); renderCard(); syncEditor(true);
+    requestPreview();
+  }
+  async function applyOrder(ids) {
+    try {
+      await invoke('reorder_luts', { ids: ids });
+      log('OK', '库序已保存（导出顺序同源）');
+      await loadLuts();
+    } catch (e) { log('FAIL', '排序失败：' + e); }
+  }
+  function moveSel(id, dir) {
+    var ids = state.luts.map(function (r) { return r.id; });
+    var i = ids.indexOf(id), j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    var t = ids[i]; ids[i] = ids[j]; ids[j] = t;
+    applyOrder(ids);
+  }
+  async function importToCard(id) {
+    var r = state.luts.find(function (x) { return x.id === id; });
+    if (!r) return;
+    if (!state.cardMount || !state.tf || state.tf.error) { toast('请先选择相机卡再导入到卡', 'warn'); return; }
+    if ((state.tf.items || []).some(function (x) { return x.local_id === id; })) {
+      toast('「' + r.name + '」已在卡清单（移除请用卡清单行 ×）', 'warn');
+      return;
+    }
+    try {
+      state.tf = await mutateCard('card_list_append_local', { mount: state.cardMount, localId: id });
+      afterTfChange('「' + r.name + '」已导入到卡清单末位（待写入；真实写入须在 App 内确认）');
+    } catch (e) { log('FAIL', '导入到卡失败：' + e); }
+  }
+  async function removeItem(id) {
+    var ok = await flushNow();
+    if (!ok) { log('WARN', '移除已取消：存在未保存改动，请先重试保存'); return; }
+    try {
+      await invoke('trash_remove', { id: id });
+      if (state.sel && state.sel.num === id) state.sel = null;
+      log('OK', '已移入回收站（可恢复）');
+      await loadLuts(); await loadTrash(); syncEditor();
+      requestPreview();
+    } catch (e) { log('FAIL', '移除失败：' + e); }
+  }
+
+  function renderCard() {
+    var tf = state.tf;
+    var st = $('tf-status');
+    if (!state.cardMount) {
+      st.textContent = state.cards.length
+        ? '选择一张存储卡开始读卡（只读）'
+        : '未检测到外置存储卡 · 插入 TF 卡后点「↻ 刷新」';
+    } else if (!tf) {
+      st.textContent = '读卡中… ' + state.cardMount;
+    } else if (tf.error) {
+      st.textContent = tf.error;
+    } else {
+      var ch = tf.changed || {};
+      var parts = [];
+      if (tf.build_tag) parts.push('BUILD ' + tf.build_tag);
+      parts.push(tf.items.length + '/' + tf.max_slots + ' 档');
+      var dev = (state.cards.find(function (c) { return c.mount_point === state.cardMount; }) || {}).device;
+      if (dev) parts.push(dev);
+      var diffs = [];
+      if (ch.add) diffs.push('+' + ch.add);
+      if (ch.del) diffs.push('−' + ch.del);
+      if (ch.order) diffs.push('序变');
+      if (diffs.length) parts.push('变更 ' + diffs.join(' '));
+      if (tf.items[tf.preload]) parts.push('默认 ' + tf.items[tf.preload].name);
+      parts.push('写入前需本次确认');
+      st.textContent = parts.join(' · ');
+    }
+    var cur = $('tf-cur');
+    var r = selected();
+    if (!r) { cur.textContent = '未选中滤镜 · 点击库行或卡清单行查看'; return; }
+    if (r.card) {
+      cur.textContent = '当前滤镜 ' + dispName(r) + ' · 卡内只读 · FP ' + r.hash + ' · 参数固定（直出 1.00）';
+      return;
+    }
+    var params = r.source_size + '³ ' + r.format.toUpperCase() + ' · ' + toneLabel(r.tone) + ' · '
+      + r.strength.toFixed(2) + ' · ' + (r.bw ? '黑白' : '彩色')
+      + (state.dirty.has(r.id) ? ' · 未保存' : '');
+    var sha = (state.dirty.has(r.id) && r.pendingHash) ? r.pendingHash : r.hash;
+    var inTf = tf && (tf.items || []).some(function (x) { return x.local_id === r.id; });
+    cur.textContent = '当前滤镜 ' + dispName(r) + ' / ' + pad2(r.position + 1) + ' · ' + params
+      + ' · SHA ' + sha.slice(0, 16) + '…' + (inTf ? ' · 已在卡清单' : '');
+  }
+  function renderRing() {
+    var items = (state.patchInfo && state.patchInfo.filters) || [];
+    var ring = $('menu-ring');
+    if (!items.length) {
+      ring.innerHTML = '<span class="meta">等待内置整包校验…</span>';
+    } else {
+      ring.innerHTML = items.map(function (it, i) {
+        return '<span class="slot' + (i === 0 ? ' slot--first' : '') + '">' + esc(it.toUpperCase()) + '</span>';
+      }).join('');
+    }
+  }
+  async function loadLuts() {
+    try {
+      var rows = await invoke('list_luts');
+      rows.sort(function (a, b) { return a.position - b.position; });
+      // flush 快照可能落后于最新一次编辑：保留未落盘本地参数，避免回滚用户输入
+      rows.forEach(function (n) {
+        var o = state.luts.find(function (r) { return r.id === n.id; });
+        if (o && (o.editing || state.dirty.has(n.id))) {
+          n.name = o.name; n.tone = o.tone; n.strength = o.strength; n.bw = o.bw;
+          n.pendingHash = o.pendingHash; n.editing = o.editing;
+        }
+      });
+      state.luts = rows;
+      if (state.sel && state.sel.kind === 'local' && !rows.some(function (r) { return r.id === state.sel.id; })) state.sel = null;
+      if (!state.sel && rows.length) state.sel = { kind: 'local', id: rows[0].id, num: rows[0].id };
+      renderLib(); renderTf(); renderCard(); renderRing(); syncEditor();
+      requestPreview();
+    } catch (e) {
+      log('FAIL', '读取滤镜库失败：' + e);
+      setStatus('错误');
+    }
+  }
+
+  // ── 回收站 ──
+  async function loadTrash() {
+    try { state.trash = await invoke('list_trash'); }
+    catch (e) { state.trash = []; }
+    $('btn-trash').textContent = '回收站 ' + state.trash.length;
+    renderTrash();
+  }
+  function renderTrash() {
+    if (!state.showTrash) return;
+    var box = $('trash-list');
+    if (!state.trash.length) {
+      box.innerHTML = '<div class="empty-box"><p class="meta">回收站为空。</p></div>';
+      return;
+    }
+    box.innerHTML = state.trash.map(function (r) {
+      return '<div class="log-row" data-id="' + r.id + '">'
+        + '<div><div class="title">' + esc(r.name) + '</div><div class="sub">移除于 '
+        + esc((r.deleted_at || '').slice(0, 19).replace('T', ' ')) + '</div></div>'
+        + '<div class="ops">'
+        + '<button class="btn btn-secondary btn--sm tr-restore" type="button">↶ 恢复</button>'
+        + '<button class="btn btn-ghost btn--sm tr-purge btn-danger" type="button">永久删除</button>'
+        + '</div></div>';
+    }).join('');
+    box.querySelectorAll('.log-row').forEach(function (row) {
+      var id = Number(row.dataset.id);
+      row.querySelector('.tr-restore').addEventListener('click', async function () {
+        try {
+          await invoke('trash_restore', { id: id });
+          log('OK', '已恢复「' + (state.trash.find(function (x) { return x.id === id; }) || {}).name + '」到库末尾');
+          await loadLuts(); await loadTrash();
+        } catch (e) { log('FAIL', '恢复失败：' + e); }
+      });
+      var pb = row.querySelector('.tr-purge');
+      pb.addEventListener('click', async function () {
+        if (pb.dataset.armed !== '1') { pb.dataset.armed = '1'; pb.textContent = '确认删除？'; return; }
+        try {
+          await invoke('trash_purge', { id: id });
+          log('OK', '已永久删除（内容文件无引用时回收）');
+          await loadTrash();
+        } catch (e) { log('FAIL', '永久删除失败：' + e); }
+      });
+    });
+  }
+  $('btn-trash').addEventListener('click', function () {
+    state.showTrash = !state.showTrash;
+    $('trash-sec').hidden = !state.showTrash;
+    this.setAttribute('aria-expanded', String(state.showTrash));
+    if (state.showTrash) loadTrash();
+  });
+  var emptyArmed = false;
+  $('btn-trash-empty').addEventListener('click', async function () {
+    if (!emptyArmed) { emptyArmed = true; this.textContent = '确认清空？'; return; }
+    emptyArmed = false; this.textContent = '清空回收站';
+    try {
+      var n = await invoke('trash_empty');
+      log('OK', '回收站已清空：永久删除 ' + n + ' 项');
+      await loadTrash();
+    } catch (e) { log('FAIL', '清空回收站失败：' + e); }
+  });
+  var clearArmed = false;
+  $('btn-clear').addEventListener('click', async function () {
+    if (!clearArmed) { clearArmed = true; this.textContent = '确认清空？'; return; }
+    clearArmed = false; this.textContent = '清空库';
+    var ok = await flushNow();
+    if (!ok) { log('WARN', '清空已取消：存在未保存改动，请先重试保存'); return; }
+    try {
+      var n = await invoke('lib_clear');
+      state.sel = null;
+      log('OK', '已把 ' + n + ' 个滤镜移入回收站（可恢复）');
+      await loadLuts(); await loadTrash(); syncEditor();
+    } catch (e) { log('FAIL', '清空失败：' + e); }
+  });
+
+  // ── F-15 toast（命名校验等即时提示；同文案 1.2s 内不重复弹） ──
+  var lastToast = { msg: '', t: 0 };
+  function toast(msg, kind) {
+    var now = Date.now();
+    if (msg === lastToast.msg && now - lastToast.t < 1200) return;
+    lastToast = { msg: msg, t: now };
+    var box = $('toasts');
+    var el = document.createElement('div');
+    el.className = 'toast' + (kind === 'warn' ? ' toast--warn' : '');
+    el.textContent = msg;
+    box.appendChild(el);
+    while (box.children.length > 3) box.removeChild(box.firstChild);
+    setTimeout(function () {
+      el.classList.add('out');
+      setTimeout(function () { el.remove(); }, 260);
+    }, 2600);
+  }
+
+  // ── 参数编辑器（作用于选中项；锁定项仅可重命名） ──
+  function renderDefLine() {
+    var d = state.defaults;
+    $('def-line').textContent = '导入默认 ' + toneLabel(d.tone) + ' · ' + d.strength.toFixed(2)
+      + ' · ' + (d.bw ? '黑白' : '彩色') + '（仅本会话）';
+  }
+  function syncEditor(force) {
+    var r = selected();
+    var locked = !!(r && r.locked);
+    $('fname').disabled = !r || !!r.card;
+    if (r && (force || document.activeElement !== $('fname'))) $('fname').value = dispName(r);
+    document.querySelectorAll('input[name=tone]').forEach(function (x) {
+      x.disabled = !r || locked;
+      x.checked = !!r && x.value === r.tone;
+    });
+    $('strength').disabled = !r || locked;
+    if (r) {
+      $('strength').value = r.strength;
+      $('strength-val').textContent = r.strength.toFixed(2);
+    }
+    $('btn-savedef').disabled = !r || locked;
+    renderDefLine();
+  }
+  // 输入当下绑定稳定 ID 和版本，不再在延迟回调里重新取 selected。
+  function scheduleEdit() { return commitEdit(); }
+  function commitEdit() {
+    var r = selected();
+    if (!r || r.card || writeBusy) return Promise.resolve(false);
+    var id = r.id, version = (editVersions[id] || 0) + 1;
+    editVersions[id] = version;
+    var args = { id: id, name: r.name, tone: r.tone, strength: r.strength, bw: r.bw };
+    state.dirty.add(id); r.editing = true; renderDirty(); requestPreview();
+    return enqueueEdit(async function () {
+      try {
+        var res = await invoke('edit_lut', args);
+        stagedVersions[id] = version;
+        if (editVersions[id] === version) {
+          delete editErrors[id];
+          var current = state.luts.find(function (x) { return x.id === id; });
+          if (current) current.pendingHash = res.hash;
+        }
+        renderCard(); scheduleAutoFlush();
+        return true;
+      } catch (e) {
+        if (editVersions[id] === version) editErrors[id] = String(e);
+        log('FAIL', '编辑未保存：' + e); showBanner('编辑提交失败，改动保留：' + e, state.pendingClose);
+        return false;
+      }
+    });
+  }
+  $('fname').addEventListener('input', function () {
+    var r = selected();
+    if (!r || r.card) return;
+    var raw = this.value;
+    var clean = raw.replace(/[^A-Za-z0-9]/g, '');
+    if (clean !== raw) toast('自定义名仅允许英文与数字，其它字符已过滤', 'warn');
+    if (clean.length > 64) { clean = clean.slice(0, 64); toast('自定义名最长 64 字符，超出已截断', 'warn'); }
+    if (!clean) { clean = dispName(r); toast('名称不能为空，已保留原显示名', 'warn'); }
+    if (clean !== raw) this.value = clean;
+    // 只改会话级显示名：库列表 / 卡清单保留原始名，也不触发后端改名
+    if (clean === r.name) delete state.disp[r.id];
+    else state.disp[r.id] = clean;
+    renderCard();
+  });
+  document.querySelectorAll('input[name=tone]').forEach(function (x) {
+    x.addEventListener('change', function () {
+      var r = selected();
+      if (!r || r.locked || !x.checked) return;
+      r.tone = x.value; r.editing = true;
+      commitEdit();
+    });
+  });
+  $('strength').addEventListener('input', function () {
+    $('strength-val').textContent = (+this.value).toFixed(2);
+    var r = selected();
+    if (!r || r.locked) return;
+    r.strength = +this.value; r.editing = true;
+    renderCard();
+    scheduleEdit();
+  });
+  $('btn-savedef').addEventListener('click', async function () {
+    var r = selected();
+    if (!r) return;
+    if (r.locked) { log('WARN', '卡载滤镜参数已固定，不能存为默认'); return; }
+    state.defaults = { tone: r.tone, strength: r.strength, bw: r.bw };
+    try { await invoke('set_defaults', { tone: r.tone, strength: r.strength, bw: r.bw }); }
+    catch (e) { log('FAIL', '存默认失败：' + e); }
+    renderDefLine();
+    log('OK', '已把「' + r.name + '」的参数存为导入默认（仅本次会话，作用于之后新文件）');
+  });
+  $('btn-save').addEventListener('click', function () { flushNow(); });
+
+  // ── 保存横幅按钮 ──
+  $('btn-retry').addEventListener('click', function () { flushNow(); });
+  async function discardAll() {
+    clearTimeout(autoTimer);
+    var versions = Object.assign({}, editVersions);
+    try {
+      var discarded = await enqueueEdit(async function () {
+        await invoke('discard_edits');
+        return versions;
+      });
+      state.dirty.forEach(function (id) {
+        if (editVersions[id] === discarded[id]) {
+          state.dirty.delete(id); delete editErrors[id];
+          var r = state.luts.find(function (x) { return x.id === id; });
+          if (r) r.editing = false;
+        }
+      });
+      renderDirty(); hideBanner(); await loadLuts();
+      return true;
+    } catch (e) { showBanner('放弃失败：' + e, state.pendingClose); return false; }
+  }
+  $('btn-discard').addEventListener('click', async function () {
+    if (await discardAll()) log('WARN', '已放弃未保存改动（未写入本地库）');
+  });
+  $('btn-retry-close').addEventListener('click', async function () {
+    if (await flushNow()) { try { await invoke('confirm_close'); } catch (e) { log('FAIL', String(e)); } }
+  });
+  $('btn-discard-close').addEventListener('click', async function () {
+    if (await discardAll()) { try { await invoke('confirm_close'); } catch (e) { log('FAIL', String(e)); } }
+  });
+
+  // ── 卡状态（只读探测） ──
+  function renderCardStatus() {
+    var selectedCard = state.cards.find(function (c) { return c.mount_point === state.cardMount; });
+    var c = selectedCard ? Object.assign({ found: true, mounted: true }, selectedCard) : { found: false };
+    state.card = c;
+    var chip = $('card-chip');
+    var list = $('card-list');
+    if (c && c.found && c.mounted) {
+      chip.textContent = 'CARD MOUNTED';
+      chip.classList.remove('status-chip--off');
+      $('status-card').textContent = 'CARD · ' + c.device;
+    } else if (c && c.found) {
+      chip.textContent = 'CARD · 未挂载';
+      chip.classList.add('status-chip--off');
+      $('status-card').textContent = 'CARD 未挂载';
+    } else {
+      chip.textContent = 'NO CARD';
+      chip.classList.add('status-chip--off');
+      $('status-card').textContent = 'NO CARD';
+    }
+    var rows = [];
+    if (c && c.found) {
+      rows.push(['UUID', c.uuid]);
+      rows.push(['设备', c.device]);
+      rows.push(['挂载点', c.mount_point || '未挂载']);
+      if (c.volume_name) rows.push(['卷名', c.volume_name]);
+    } else {
+      rows.push(['状态', '未检测到相机卡']);
+      if (c && c.reason) rows.push(['原因', c.reason]);
+    }
+    rows.push(['保护内容', '照片 / 已有触屏设置 / 滤镜记忆']);
+    list.innerHTML = rows.map(function (kv) {
+      return '<li><span>' + esc(kv[0]) + '</span><span>' + esc(kv[1]) + '</span></li>';
+    }).join('');
+    var patchSelect = $('patch-select');
+    patchSelect.innerHTML = state.cards.length ? state.cards.map(function (c) {
+      return '<option value="' + esc(c.mount_point) + '">' + esc(c.volume_name) + ' · ' + esc(c.device || '—') + '</option>';
+    }).join('') : '<option value="">未检测到存储卡</option>';
+    patchSelect.value = state.cardMount || '';
+    $('patch-check').disabled = $('patch-install').disabled = writeBusy || state.patchModel !== 'lightning' || !state.cardMount || !state.patchInfo;
+    if ($('patch-files').dataset.mount !== (state.cardMount || '')) {
+      $('patch-files').dataset.mount = state.cardMount || '';
+      $('patch-files').innerHTML = '<li><span>等待预检</span><span>此时不写卡</span></li>';
+      $('patch-status').textContent = state.cardMount ? '点击只读预检，或一键安装并核对确认。' : '请插入相机存储卡。';
+    }
+  }
+  async function loadCard() { return loadCards(true); }
+
+  // ── F-13 TF 卡区域：选卡 / 只读工作清单（增删排序即时生效，不写卡） ──
+  function tfEmpty(msg) { return '<div class="empty-box"><p class="meta">' + esc(msg) + '</p></div>'; }
+  var MENU_CHARSET = '-025ABEFGHIKLNOPRSTUVWY';
+  function renderTf() {
+    var box = $('tf-list');
+    var tf = state.tf;
+    if (!state.cardMount) { box.innerHTML = tfEmpty('未选择存储卡 —— 在上方 TF CARD 区选择插入的卡。'); $('tf-count').textContent = '— 档'; return; }
+    if (!tf) { box.innerHTML = tfEmpty('读卡中…'); $('tf-count').textContent = '— 档'; return; }
+    if (tf.error) { box.innerHTML = tfEmpty(tf.error); $('tf-count').textContent = '— 档'; return; }
+    $('tf-count').textContent = pad2(tf.items.length) + ' / ' + tf.max_slots + ' 档';
+    if (!tf.items.length) { box.innerHTML = tfEmpty('清单为空 —— 左侧导入滤镜后自动追加到末位（待写入）。'); return; }
+    var focusKey = (document.activeElement && document.activeElement.classList
+      && document.activeElement.classList.contains('log-row')) ? document.activeElement.dataset.key : null;
+    var am = document.activeElement;
+    var menuFocus = (am && am.classList && am.classList.contains('tf-menu')) ? am.dataset.key : null;
+    box.innerHTML = tf.items.map(function (it, idx) {
+      var isSel = state.sel && state.sel.kind === 'card' && state.sel.key === it.key;
+      var isDef = tf.preload === idx;
+      var sub = it.kind === 'card' ? '卡内 · FP ' + hex8(it.fp1) : '待写入 · 本地库 #' + it.local_id;
+      var menuHtml = '';
+      if (it.kind === 'local') {
+        var mok = it.menu_ok !== false;
+        menuHtml = '<div class="menu-edit"><label class="menu-lab" for="camera-name-' + it.local_id + '">相机名称</label>'
+          + '<input class="tf-menu' + (mok ? '' : ' tf-menu--bad') + '" id="camera-name-' + it.local_id + '" type="text" maxlength="6" value="' + esc(it.menu || '') + '" placeholder="如 FLAT" data-key="' + esc(it.key) + '" aria-label="相机名称 ' + esc(it.name) + '" aria-describedby="tf-name-help" title="直接修改，按 Enter 或点到别处保存；写入存储卡后生效">'
+          + (mok ? '' : '<button class="btn btn--sm tf-menu-use" type="button"' + (it.menu ? '' : ' disabled') + '>使用此简称</button><span class="menu-bad">原名无法在相机上显示。请确认此简称，或修改后按 Enter。</span>') + '</div>';
+      }
+      return '<div class="log-row' + (isSel ? ' log-row--selected' : '') + (isDef ? ' log-row--default' : '') + '" data-key="' + esc(it.key) + '" tabindex="0" role="button" draggable="true" aria-label="选择卡内滤镜 ' + esc(it.name) + '">'
+        + '<span class="cur-badge"' + (isSel ? '' : ' hidden') + '>当前滤镜</span>'
+        + (isDef ? '<span class="def-badge">默认</span>' : '')
+        + '<div><div class="title">' + esc(it.name) + '</div><div class="sub">' + esc(sub) + '</div>' + menuHtml + '</div>'
+        + '<div class="ops">'
+        + '<button class="btn btn-ghost btn--sm tf-def" type="button" aria-label="设 ' + esc(it.name) + ' 为开机默认" title="' + (isDef ? '当前开机默认（本地工作清单）' : '设为开机默认（存本地工作清单；真实写入须在 App 内确认）') + '">' + (isDef ? '★' : '☆') + '</button>'
+        + '<button class="btn btn-ghost btn--sm tf-up" type="button" title="上移（即时生效，存本地工作清单；键盘替代：聚焦后 Alt+↑）">↑</button>'
+        + '<button class="btn btn-ghost btn--sm tf-down" type="button" title="下移（即时生效，存本地工作清单；键盘替代：聚焦后 Alt+↓）">↓</button>'
+        + '<button class="btn btn-ghost btn--sm tf-rm" type="button" title="从卡清单移除（不删卡上文件；实际生效须确认写卡）">×</button>'
+        + '</div></div>';
+    }).join('');
+    box.querySelectorAll('.log-row').forEach(function (row) {
+      var key = row.dataset.key;
+      row.addEventListener('click', function (e) { if (e.target.closest('.ops, .menu-edit')) return; selectCard(key); });
+      row.addEventListener('keydown', function (e) {
+        if (e.target.closest('.menu-edit')) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectCard(key); }
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); tfMove(key, e.key === 'ArrowUp' ? -1 : 1); }
+      });
+      row.querySelector('.tf-up').addEventListener('click', function (e) { e.stopPropagation(); tfMove(key, -1); });
+      row.querySelector('.tf-down').addEventListener('click', function (e) { e.stopPropagation(); tfMove(key, 1); });
+      row.querySelector('.tf-rm').addEventListener('click', function (e) { e.stopPropagation(); tfRemove(key); });
+      row.querySelector('.tf-def').addEventListener('click', function (e) { e.stopPropagation(); tfSetPreload(key); });
+      var mi = row.querySelector('.tf-menu');
+      if (mi) {
+        var useName = row.querySelector('.tf-menu-use');
+        if (useName) useName.addEventListener('click', function (e) { e.stopPropagation(); tfSetMenuName(key, mi); });
+        mi.addEventListener('click', function (e) { e.stopPropagation(); });
+        mi.addEventListener('keydown', function (e) {
+          e.stopPropagation();
+          if (e.key === 'Enter') { e.preventDefault(); tfSetMenuName(key, mi); }
+        });
+        mi.addEventListener('change', function () { tfSetMenuName(key, mi); });
+      }
+      row.addEventListener('dragstart', function (e) { e.dataTransfer.setData('text/plain', key); e.dataTransfer.effectAllowed = 'move'; });
+      row.addEventListener('dragover', function (e) { e.preventDefault(); row.classList.add('dragover'); });
+      row.addEventListener('dragleave', function () { row.classList.remove('dragover'); });
+      row.addEventListener('drop', function (e) {
+        e.preventDefault(); row.classList.remove('dragover');
+        var from = e.dataTransfer.getData('text/plain');
+        if (!from || from === key || (from.indexOf('card:') !== 0 && from.indexOf('local:') !== 0)) return;
+        var keys = state.tf.items.map(function (x) { return x.key; });
+        var fi = keys.indexOf(from), ti = keys.indexOf(key);
+        if (fi < 0 || ti < 0) return;
+        keys.splice(fi, 1); keys.splice(ti, 0, from);
+        tfReorder(keys);
+      });
+    });
+    if (focusKey) {
+      var fr = box.querySelector('.log-row[data-key="' + focusKey + '"]');
+      if (fr) fr.focus();
+    }
+    if (menuFocus) {
+      var mi2 = box.querySelector('.tf-menu[data-key="' + menuFocus + '"]');
+      if (mi2) { mi2.focus(); mi2.setSelectionRange(mi2.value.length, mi2.value.length); }
+    }
+  }
+  var cardQueue = Promise.resolve();
+  function mutateCard(command, args) {
+    if (writeBusy) return Promise.reject(new Error('正在准备或执行写卡，请稍候'));
+    var job = cardQueue.then(async function () {
+      var reply = await invoke(command, args);
+      if (state.cardMount !== args.mount) throw new Error('已切换存储卡，忽略旧卡响应');
+      return reply;
+    });
+    cardQueue = job.catch(function () {});
+    return job;
+  }
+  async function tfSetMenuName(key, input) {
+    var up = input.value.trim().toUpperCase();
+    if (up) {
+      var bad = up.split('').filter(function (c) { return MENU_CHARSET.indexOf(c) < 0; });
+      if (bad.length || up.length > 6) {
+        toast('相机名称最多 6 位；仅支持 ' + MENU_CHARSET + '。例如 FLAT、B-W，不支持中文或空格。', 'warn');
+        var it0 = (state.tf.items || []).find(function (x) { return x.key === key; });
+        input.value = (it0 && it0.menu) || '';
+        return;
+      }
+    }
+    try {
+      state.tf = await mutateCard('card_list_set_menu_name', { mount: state.cardMount, key: key, name: up });
+      afterTfChange(up ? '相机名称已保存为「' + up + '」，写入存储卡后生效' : '已恢复根据原名生成相机名称');
+    } catch (e) {
+      toast('菜单名未生效：' + e, 'warn');
+      var it1 = (state.tf.items || []).find(function (x) { return x.key === key; });
+      input.value = (it1 && it1.menu) || '';
+    }
+  }
+  function afterTfChange(msg) {
+    if (state.sel && state.sel.kind === 'card'
+      && !(state.tf.items || []).some(function (x) { return x.key === state.sel.key; })) state.sel = null;
+    renderTf(); renderLib(); renderRing(); renderCard(); syncEditor(true); requestPreview();
+    if (msg) log('OK', msg);
+  }
+  async function tfReorder(keys) {
+    try {
+      state.tf = await mutateCard('card_list_reorder', { mount: state.cardMount, keys: keys });
+      afterTfChange('卡清单顺序已更新（本地工作清单，即时生效）');
+    } catch (e) { log('FAIL', '卡清单排序失败：' + e); await loadTf(); }
+  }
+  async function tfMove(key, dir) {
+    try {
+      state.tf = await mutateCard('card_list_move', { mount: state.cardMount, key: key, dir: dir });
+      afterTfChange(null);
+    } catch (e) { log('FAIL', '卡清单移动失败：' + e); await loadTf(); }
+  }
+  async function tfRemove(key) {
+    var it = state.tf && (state.tf.items || []).find(function (x) { return x.key === key; });
+    try {
+      state.tf = await mutateCard('card_list_remove', { mount: state.cardMount, key: key });
+      log('OK', '已从卡清单移除「' + (it ? it.name : key) + '」（不删卡上文件；实际生效须确认写卡）');
+      afterTfChange(null);
+    } catch (e) { log('FAIL', '卡清单移除失败：' + e); await loadTf(); }
+  }
+  async function tfSetPreload(key) {
+    var it = state.tf && (state.tf.items || []).find(function (x) { return x.key === key; });
+    try {
+      state.tf = await mutateCard('card_set_preload', { mount: state.cardMount, key: key });
+      afterTfChange('已设「' + (it ? it.name : key) + '」为开机默认（本地工作清单；真实写入须在 App 内确认后由内置重建器执行）');
+    } catch (e) { log('FAIL', '设默认滤镜失败：' + e); await loadTf(); }
+  }
+  var scanSeq = 0, tfSeq = 0, scanning = false;
+  async function loadCards(poll) {
+    var seq = ++scanSeq; scanning = true;
+    var cards;
+    try { cards = await invoke('list_cards'); }
+    catch (e) { if (seq !== scanSeq) return; cards = []; log('FAIL', '枚举存储卡失败：' + e); }
+    if (seq !== scanSeq) return;
+    scanning = false;
+    var changed = JSON.stringify(cards) !== JSON.stringify(state.cards);
+    state.cards = cards;
+    var selEl = $('tf-select');
+    if (!cards.length) {
+      ++tfSeq; state.cardMount = null; state.tf = null;
+      if (state.sel && state.sel.kind === 'card') state.sel = null;
+      selEl.innerHTML = '<option value="">未检测到存储卡</option>';
+      renderTf(); renderLib(); renderRing(); renderCard(); renderCardStatus(); syncEditor(); requestPreview();
+      return;
+    }
+    selEl.innerHTML = cards.map(function (c) {
+      var tag = c.is_known ? '相机卡' : (c.has_ph_menu ? '含 ph_menu' : '外置卷');
+      return '<option value="' + esc(c.mount_point) + '">' + esc(c.volume_name) + ' · ' + esc(c.device || '—') + ' · ' + tag + '</option>';
+    }).join('');
+    var keep = state.cardMount && cards.some(function (c) { return c.mount_point === state.cardMount; });
+    if (!keep) { state.cardMount = cards[0].mount_point; state.tf = null; }
+    selEl.value = state.cardMount; renderCardStatus();
+    if (!poll || changed || !state.tf || state.tf.error) await loadTf();
+  }
+  async function loadTf() {
+    var mount = state.cardMount, seq = ++tfSeq;
+    if (!mount) { state.tf = null; renderTf(); renderCard(); renderCardStatus(); syncEditor(); requestPreview(); return; }
+    var tf;
+    try { tf = await invoke('card_list_get', { mount: mount }); }
+    catch (e) { tf = { error: '非相机卡或读卡失败：' + e, items: [] }; }
+    if (seq !== tfSeq || mount !== state.cardMount) return;
+    state.tf = tf;
+    if (state.sel && state.sel.kind === 'card'
+      && !(tf.items || []).some(function (x) { return x.key === state.sel.key; })) state.sel = null;
+    if (state.sel && state.sel.kind === 'card') pv.lastSig = null;
+    renderTf(); renderLib(); renderRing(); renderCard(); renderCardStatus(); syncEditor(); requestPreview();
+  }
+  $('tf-select').addEventListener('change', function () {
+    ++tfSeq; state.cardMount = this.value || null; state.tf = null;
+    if (state.sel && state.sel.kind === 'card') state.sel = null;
+    renderTf(); renderCard(); renderCardStatus(); syncEditor(); requestPreview(); loadTf();
+  });
+  $('patch-select').addEventListener('change', function () {
+    if (writeBusy) return;
+    $('tf-select').value = this.value;
+    $('tf-select').dispatchEvent(new Event('change'));
+  });
+  $('patch-refresh').addEventListener('click', function () { if (!writeBusy) loadCards(); });
+  $('tf-refresh').addEventListener('click', function () { loadCards(); });
+  $('tf-write').addEventListener('click', async function () {
+    if (!state.cardMount || !state.tf || state.tf.error) { log('WARN', '请先选择相机卡再预演'); return; }
+    try {
+      if (!await flushNow()) return;
+      await cardQueue;
+      var mount = state.cardMount;
+      var p = await invoke('card_write_plan', { mount: mount });
+      if (state.cardMount !== mount) return;
+      log('INFO', '写入预演（只读，不写卡）：' + p.items.length + ' 档 · ' + p.ph_menu_action);
+      p.items.forEach(function (r) {
+        log(r.action === 'keep' ? 'INFO' : (r.menu_ok ? 'OK' : 'WARN'),
+          (r.action === 'keep' ? '保留 ' : '新增 ') + r.name + ' → ' + r.file
+          + (r.menu_name ? ' · 菜单名 ' + r.menu_name + (r.menu_ok ? '' : '（不合规）') : ''));
+      });
+      (p.blocked || []).forEach(function (b) { log('WARN', b); });
+      if (p.rebuild_preview && p.rebuild_preview.ok) {
+        log('OK', '内置重建预演：ph_menu ' + p.rebuild_preview.bytes + ' B · SHA ' + p.rebuild_preview.sha.slice(0, 16) + '…（未写卡）');
+      }
+      if (p.touch_preview) {
+        log('INFO', '触屏同步预演：dxot/a.bin ' + p.touch_preview.bytes + ' B · SHA ' + p.touch_preview.sha.slice(0, 16)
+          + '…（横滑回绕按档数重写：首尾无限循环；写入时需勾选确认）');
+      }
+      if (p.phls_preview) {
+        log('INFO', '开机记忆重置预演：ph_last.bin ' + p.phls_preview.bytes + ' B → idx=' + p.phls_preview.idx
+          + '（' + (p.preload_name || '—') + '）· 写新菜单时重置记忆，使开机默认生效');
+      }
+      log('INFO', '开机默认（写菜单时重置记忆）idx=' + p.preload + '（' + (p.preload_name || '—') + '）'
+        + (p.rebuild_manifest ? ' · 已生成 rebuild 清单（filters ' + p.rebuild_manifest.filters.length + ' + preload）' : ' · 存在不合规项，未生成 rebuild 清单'));
+      log('INFO', '以上仅为预演；点「写入存储卡」核对本次变更并确认后才会写入');
+    } catch (e) { log('FAIL', '写入预演失败：' + e); }
+  });
+  var writeBusy = false;
+  function setWriteBusy(busy) {
+    writeBusy = busy;
+    document.querySelector('.app').inert = busy;
+    $('tf-apply').disabled = busy;
+    $('patch-check').disabled = $('patch-install').disabled = busy || state.patchModel !== 'lightning' || !state.cardMount || !state.patchInfo;
+    setStatus(busy ? '正在准备或执行写入…' : '就绪');
+  }
+  function confirmWrite(p, mount) {
+    var dialog = $('write-confirm');
+    var card = state.cards.find(function (c) { return c.mount_point === mount; });
+    $('write-confirm-target').textContent = (card ? card.volume_name + ' · ' : '') + mount;
+    var add = p.items.filter(function (r) { return r.action === 'add'; }).length;
+    $('write-confirm-summary').textContent = p.items.length + ' 档 · 新增 ' + add + ' 档 · 移除 '
+      + ((state.tf.changed || {}).del || 0) + ' 档 · 开机默认 ' + (p.preload_name || '—');
+    $('write-confirm-files').innerHTML = (p.files || []).map(function (f) {
+      return '<li>' + esc(f.file) + ' · ' + f.bytes + ' B</li>';
+    }).join('');
+    var touch = !!p.touch_preview;
+    $('write-touch-label').hidden = !touch; $('write-touch').checked = false;
+    $('write-accept').disabled = touch;
+    dialog.returnValue = ''; dialog.showModal(); $('write-cancel').focus();
+    return new Promise(function (resolve) {
+      dialog.addEventListener('close', function () { resolve(dialog.returnValue === 'write'); }, { once: true });
+    });
+  }
+  $('write-touch').addEventListener('change', function () { $('write-accept').disabled = !this.checked; });
+  $('write-cancel').addEventListener('click', function () { $('write-confirm').close('cancel'); });
+  $('write-accept').addEventListener('click', function () { $('write-confirm').close('write'); });
+  $('tf-apply').addEventListener('click', async function () {
+    if (writeBusy || !state.cardMount || !state.tf || state.tf.error) return;
+    setWriteBusy(true);
+    try {
+      if (!await flushNow()) return;
+      await cardQueue;
+      var mount = state.cardMount;
+      var p = await invoke('card_write_plan', { mount: mount });
+      if (state.cardMount !== mount) throw new Error('存储卡已切换，请重新确认');
+      if ((p.blocked || []).length) throw new Error(p.blocked.join('；'));
+      if (!await confirmWrite(p, mount)) { log('INFO', '已取消写入，卡未改动'); return; }
+      var res = await invoke('card_apply', { mount: mount, confirmationToken: p.confirmation_token, includeTouch: !!p.touch_preview });
+      log('OK', '写入完成：' + (res.written || []).join('、') + ' · ph_menu SHA ' + String(res.ph_menu_sha).slice(0, 16)
+        + '… · 本地备份：' + res.backup_dir);
+      toast('写入完成，卡清单已按新卡刷新', 'ok');
+      await loadCards();
+    } catch (e) {
+      toast('写入未完成，请查看日志', 'warn');
+      log('FAIL', '写入未完成：' + e);
+      await loadCards();
+    } finally { setWriteBusy(false); }
+  });
+
+  // ── 应用信息 ──
+  // ── 补丁机型选择与结果提示 ──
+  function setPatchModel(model) {
+    if (writeBusy) return;
+    state.patchModel = model;
+    $('panel-patch').dataset.model = model || '';
+    $('patch-model-picker').hidden = model === 'lightning';
+    $('patch-model-lightning').setAttribute('aria-pressed', String(model === 'lightning'));
+    $('patch-model-usbc').setAttribute('aria-pressed', String(model === 'usbc'));
+    renderCardStatus();
+    if (model === 'lightning') loadCard();
+  }
+  $('patch-model-lightning').addEventListener('click', function () { setPatchModel('lightning'); });
+  $('patch-model-usbc').addEventListener('click', function () { setPatchModel('usbc'); });
+  $('patch-model-change').addEventListener('click', function () { setPatchModel(null); });
+  function showPatchSuccess(res, mount) {
+    $('patch-success-title').textContent = res.warning ? '补丁已写入，请留意以下提示' : '✓ 完整版安装完成';
+    $('patch-success-summary').textContent = 'Build ' + res.build + ' · ' + mount + ' · ' + res.written.length + ' 件文件已写入并回读校验一致。';
+    $('patch-success-warning').textContent = res.warning || '';
+    $('patch-success-warning').hidden = !res.warning;
+    $('patch-success-backup').textContent = '本地备份：' + res.backup_dir;
+    $('patch-success').showModal(); $('patch-success-close').focus();
+  }
+  $('patch-success-close').addEventListener('click', function () { $('patch-success').close(); });
+  async function loadPatchInfo() {
+    try {
+      var info = await invoke('patch_info'); state.patchInfo = info;
+      $('patch-version').textContent = '内置 Build ' + info.build + ' · ' + info.date + ' · 完整 ' + info.count + ' 件 · 校验通过 · 可离线安装';
+      $('patch-credits').textContent = info.credits;
+      renderRing(); renderCardStatus();
+    } catch (e) {
+      state.patchInfo = null;
+      $('patch-version').textContent = '内置补丁不可用：' + e;
+      $('patch-check').disabled = $('patch-install').disabled = true;
+      log('FAIL', '整包校验失败：' + e);
+    }
+  }
+  function displayPatchPlan(p) {
+    $('patch-files').dataset.mount = p.mount;
+    $('patch-files').innerHTML = p.files.map(function (f) {
+      return '<li><span>' + esc(f.file) + '</span><span>' + esc(f.action) + '</span></li>';
+    }).join('');
+    $('patch-status').textContent = '预检通过 · ' + p.filesystem + ' · 剩余 ' + p.free_mb + ' MB · '
+      + (p.current_build ? '卡上 Build ' + p.current_build : '未发现可识别的滤镜菜单')
+      + ' → Build 72 · 写入 ' + p.write_count + ' 件 · ' + (p.preserve_prefs ? '保留已有触屏设置' : '补充默认触屏设置');
+  }
+  function confirmPatch(p, mount) {
+    var dialog = $('patch-confirm');
+    $('patch-confirm-target').textContent = mount + ' · ' + p.device;
+    $('patch-confirm-summary').textContent = '写入 ' + p.write_count + ' 件；新建目录：' + (p.create_dirs.join('、') || '无');
+    $('patch-confirm-files').innerHTML = p.files.map(function (f) {
+      return '<li>' + esc(f.file) + ' · ' + esc(f.action) + '</li>';
+    }).join('');
+    $('patch-compatible').checked = false; $('patch-accept').disabled = true;
+    dialog.returnValue = ''; dialog.showModal(); $('patch-cancel').focus();
+    return new Promise(function (resolve) {
+      dialog.addEventListener('close', function () { resolve(dialog.returnValue === 'install' && $('patch-compatible').checked); }, { once: true });
+    });
+  }
+  $('patch-compatible').addEventListener('change', function () { $('patch-accept').disabled = !this.checked; });
+  $('patch-cancel').addEventListener('click', function () { $('patch-confirm').close('cancel'); });
+  $('patch-accept').addEventListener('click', function () { if ($('patch-compatible').checked) $('patch-confirm').close('install'); });
+  async function runPatch(install) {
+    if (writeBusy || state.patchModel !== 'lightning' || !state.cardMount || !state.patchInfo) return;
+    setWriteBusy(true);
+    try {
+      if (!await flushNow()) return;
+      await cardQueue;
+      var mount = state.cardMount;
+      $('patch-status').textContent = '正在校验整包并只读预检存储卡…';
+      var p = await invoke('patch_plan', { mount: mount });
+      if (state.cardMount !== mount) throw new Error('存储卡已切换，请重新预检');
+      displayPatchPlan(p);
+      if (!install) { log('OK', 'Build 72 完整包预检通过，未写卡：' + mount); return; }
+      if (!await confirmPatch(p, mount)) {
+        $('patch-status').textContent = '已取消安装，存储卡未改动。';
+        log('INFO', '已取消完整版安装，未写卡'); return;
+      }
+      if (state.cardMount !== mount) throw new Error('存储卡已切换，请重新确认');
+      $('patch-status').textContent = '正在备份、安装和回读校验，请保持存储卡连接…';
+      var res = await invoke('patch_install', { mount: mount, confirmationToken: p.confirmation_token, firmware: 'lightning-ecef5ef809' });
+      log('OK', 'Build ' + res.build + ' 完整包安装完成，逐文件回读一致 · 本地备份：' + res.backup_dir);
+      if (res.warning) log('WARN', res.warning);
+      showPatchSuccess(res, mount);
+      try { await loadCards(); } catch (e) { log('WARN', '补丁已安装，刷新卡信息失败：' + e); }
+      $('patch-status').textContent = (res.warning || '安装完成，文件校验一致。请在访达中安全弹出，装回相机后开机等待约 3 秒。') + ' 本地备份：' + res.backup_dir;
+      toast('完整版安装完成，请安全弹出存储卡', 'ok');
+    } catch (e) {
+      $('patch-status').textContent = '未完成：' + e;
+      log('FAIL', '完整版操作未完成：' + e);
+      toast('请查看安装结果和日志', 'warn');
+    } finally { setWriteBusy(false); }
+  }
+  $('patch-check').addEventListener('click', function () { return runPatch(false); });
+  $('patch-install').addEventListener('click', function () { return runPatch(true); });
+
+  async function loadInfo() {
+    try {
+      var info = await invoke('app_info');
+      state.info = info;
+      $('about-ver').textContent = 'v' + info.version;
+      $('about-db').textContent = info.db_dir;
+    } catch (e) {
+      log('FAIL', '读取应用信息失败：' + e);
+    }
+  }
+
+  // ── R3 预览：异步代次校验 + 缓存 + 并排/拖动对比 + 照片/色卡 ──
+  var pv = { gen: 0, imgVersion: 0, mode: 'split', pos: 50, lastSig: null };
+  function pvSig(r) { return [r.id, r.tone, r.strength.toFixed(2), r.bw, pv.imgVersion].join('|'); }
+  function setImg(el, b64) { el.src = 'data:image/jpeg;base64,' + b64; }
+  function sizeFrame(frame, img) {
+    var box = frame.parentElement;
+    var bw = box.clientWidth, bh = box.clientHeight;
+    if (!bw || !bh || !img.naturalWidth) return;
+    var r = img.naturalWidth / img.naturalHeight;
+    var w = bw, h = w / r;
+    if (h > bh) { h = bh; w = h * r; }
+    var z = pv.zoom || 1;
+    frame.style.width = (w * z) + 'px';
+    frame.style.height = (h * z) + 'px';
+  }
+  function sizeAllFrames() {
+    sizeFrame($('pv-f-before'), $('pv-before'));
+    sizeFrame($('pv-f-after'), $('pv-after'));
+    sizeFrame($('pv-f-slider'), $('pv-s-before'));
+  }
+  function fitFrame(img, frame) {
+    function apply() { sizeFrame(frame, img); }
+    if (img.complete && img.naturalWidth > 0) apply();
+    else img.addEventListener('load', apply, { once: true });
+  }
+  window.addEventListener('resize', sizeAllFrames);
+  function setImageLabel(label) { $('pv-img-label').textContent = label; }
+  function clearPreview() {
+    $('pv-mode-label').textContent = '与写卡共用滤镜表 · 色彩待实拍核对';
+    ['pv-before', 'pv-after', 'pv-s-before', 'pv-s-after'].forEach(function (id) { $(id).removeAttribute('src'); });
+    $('pv-before-ph').hidden = false;
+    $('pv-after-ph').textContent = '预览服务就绪 · 选择滤镜后渲染'; $('pv-after-ph').hidden = false;
+    $('pv-slider-ph').hidden = false;
+    ['pv-tag-before', 'pv-tag-after', 'pv-tag-s-before', 'pv-tag-s-after'].forEach(function (id) { $(id).hidden = true; });
+    ['pv-f-before', 'pv-f-after', 'pv-f-slider'].forEach(function (id) { $(id).style.width = ''; $(id).style.height = ''; });
+    pv.lastSig = null;
+  }
+  function requestPreview() {
+    var r = selected();
+    if (!r) { clearPreview(); return; }
+    var args = { id: r.id, tone: r.tone, strength: r.strength, bw: r.bw };
+    var sig;
+    if (r.card) {
+      // 卡上既有档：只读提取 Still1 表直出（参数固定）；待写入档走本地库常规路径
+      if (!r.srcPath || !state.cardMount) { clearPreview(); return; }
+      args.cardMount = state.cardMount; args.cardPath = r.srcPath;
+      sig = [r.id, state.cardMount, r.srcPath, pv.imgVersion].join('|');
+    } else {
+      sig = pvSig(r);
+    }
+    if (sig === pv.lastSig) return;            // 参数/图未变（含仅改名）不重复请求
+    pv.lastSig = sig;
+    invoke('preview_request', args)
+      .then(function (gen) { pv.gen = Math.max(pv.gen, gen); })
+      .catch(function (e) { if (sig === pv.lastSig) clearPreview(); log('FAIL', '预览请求失败：' + e); });
+  }
+  function applyPreview(p) {
+    setImg($('pv-before'), p.before); setImg($('pv-after'), p.after);
+    setImg($('pv-s-before'), p.before); setImg($('pv-s-after'), p.after);
+    fitFrame($('pv-before'), $('pv-f-before'));
+    fitFrame($('pv-after'), $('pv-f-after'));
+    fitFrame($('pv-s-before'), $('pv-f-slider'));
+    $('pv-before-ph').hidden = true; $('pv-after-ph').hidden = true; $('pv-slider-ph').hidden = true;
+    ['pv-tag-before', 'pv-tag-after', 'pv-tag-s-before', 'pv-tag-s-after'].forEach(function (id) { $(id).hidden = false; });
+    updateSlider(pv.pos);
+  }
+  listen('preview-result', function (e) {
+    var p = e.payload; if (!p) return;
+    var r = selected();
+    if (!r || p.id !== r.id) return;            // 切换选中/拔卡：晚到结果丢弃
+    if (p.gen < pv.gen) return;                // 晚到代次不得覆盖当前
+    pv.gen = Math.max(pv.gen, p.gen);
+    applyPreview(p);
+    $('pv-mode-label').textContent = '写卡同源 · SHA ' + p.table_sha.slice(0, 12) + '…';
+    log('OK', '预览使用' + (r.card ? '卡内 Still1' : '待写入') + '滤镜表（SHA ' + p.table_sha.slice(0, 12) + '…）');
+  });
+  listen('preview-error', function (e) {
+    var p = e.payload || {};
+    if (!state.sel || p.id !== state.sel.num || p.gen < pv.gen) return;
+    clearPreview();
+    $('pv-after-ph').textContent = '预览失败：' + p.msg; $('pv-after-ph').hidden = false;
+    log('FAIL', '预览失败：' + p.msg);
+  });
+
+  // 对比模式：并排 / 图内拖动（左=原图，右=加滤镜后，与并排顺序一致）
+  function setMode(m) {
+    pv.mode = m;
+    $('pv-split').hidden = (m !== 'split');
+    $('pv-slider').hidden = (m !== 'slider');
+    $('pv-mode-split').setAttribute('aria-pressed', String(m === 'split'));
+    $('pv-mode-slider').setAttribute('aria-pressed', String(m === 'slider'));
+    sizeAllFrames();
+  }
+  function updateSlider(pos) {
+    pv.pos = Math.max(0, Math.min(100, pos));
+    $('pv-s-after').style.clipPath = 'inset(0 0 0 ' + pv.pos + '%)';
+    $('pv-handle').style.left = pv.pos + '%';
+    $('pv-slider').setAttribute('aria-valuenow', String(Math.round(pv.pos)));
+  }
+  $('pv-mode-split').addEventListener('click', function () { setMode('split'); });
+  $('pv-mode-slider').addEventListener('click', function () { setMode('slider'); });
+  (function () {
+    var box = $('pv-slider');
+    function posFromEvent(e) { var rc = $('pv-f-slider').getBoundingClientRect(); return (e.clientX - rc.left) / rc.width * 100; }
+    box.addEventListener('pointerdown', function (e) { box.setPointerCapture(e.pointerId); box.focus({ preventScroll: true }); updateSlider(posFromEvent(e)); e.preventDefault(); });
+    box.addEventListener('pointermove', function (e) { if (box.hasPointerCapture(e.pointerId)) updateSlider(posFromEvent(e)); });
+    box.addEventListener('pointerup', function (e) { if (box.hasPointerCapture(e.pointerId)) box.releasePointerCapture(e.pointerId); });
+    box.addEventListener('pointercancel', function (e) { if (box.hasPointerCapture(e.pointerId)) box.releasePointerCapture(e.pointerId); });
+    box.addEventListener('keydown', function (e) {
+      var step = e.shiftKey ? 10 : 1;
+      var next = null;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = pv.pos - step;
+      else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = pv.pos + step;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = 100;
+      if (next === null) return;
+      e.preventDefault();
+      updateSlider(next);
+    });
+  })();
+
+  // 预览照片 / 重置色卡（与后端 img_version 同源，换图即重算）
+  $('pv-pick').addEventListener('click', function () { $('pv-file').click(); });
+  $('pv-file').addEventListener('change', async function () {
+    var f = this.files[0]; this.value = ''; if (!f) return;
+    try {
+      var buf = await f.arrayBuffer();
+      var res = await invoke('preview_set_image_bytes', { bytes: Array.from(new Uint8Array(buf)), label: f.name });
+      pv.imgVersion = res.version; setImageLabel(f.name);
+      log('OK', '预览照片已载入：' + f.name + '（' + res.w + '×' + res.h + '，最长边 ≤1024）');
+      pv.lastSig = null; requestPreview();
+    } catch (e) { log('FAIL', '预览照片载入失败：' + e); }
+  });
+  $('pv-reset').addEventListener('click', async function () {
+    try {
+      var v = await invoke('preview_reset_image');
+      pv.imgVersion = v; setImageLabel('内置色卡');
+      log('OK', '预览已重置为内置色卡');
+      pv.lastSig = null; requestPreview();
+    } catch (e) { log('FAIL', '重置色卡失败：' + e); }
+  });
+
+  // ── 预览缩放：trackpad 双指捏合（WebKit gesture*）/ Ctrl+滚轮 / 右下角滑杆 ──
+  // 只放大照片内框（sizeFrame ×倍率），角标/边框/手柄等 UI 恒定；放大后滚轮/双指滑动平移。
+  (function () {
+    var ZMIN = 1, ZMAX = 4;
+    function clamp(z) { return Math.max(ZMIN, Math.min(ZMAX, z)); }
+    function scrollBoxes() {
+      if (pv.mode === 'slider') return [$('pv-slider')];
+      return [$('pv-f-before').parentElement, $('pv-f-after').parentElement];
+    }
+    function zoomAt(cx, cy, zNext) {
+      zNext = clamp(zNext);
+      var zPrev = pv.zoom || 1;
+      if (zNext === zPrev) return;
+      // 捕获锚点（布局坐标）：拖动模式可用光标锚点；并排两半必须同锚，恒取各自中心保证左右看同一区域
+      var anchors = scrollBoxes().map(function (box) {
+        var rc = box.getBoundingClientRect();
+        var vx = (pv.mode === 'slider' && cx != null) ? cx - rc.left : rc.width / 2;
+        var vy = (pv.mode === 'slider' && cy != null) ? cy - rc.top : rc.height / 2;
+        return { box: box, vx: vx, vy: vy, ax: (vx + box.scrollLeft) / zPrev, ay: (vy + box.scrollTop) / zPrev };
+      });
+      pv.zoom = zNext;
+      sizeAllFrames();
+      anchors.forEach(function (a) {
+        a.box.scrollLeft = a.ax * zNext - a.vx;
+        a.box.scrollTop = a.ay * zNext - a.vy;
+      });
+      $('pv-zoom').value = zNext;
+      $('pv-zoom-val').textContent = Math.round(zNext * 100) + '%';
+    }
+    var vp = $('pv-viewport');
+    vp.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      var d = Math.max(-50, Math.min(50, e.deltaY));
+      zoomAt(e.clientX, e.clientY, (pv.zoom || 1) * Math.exp(-d * 0.01));
+    }, { passive: false });
+    var gBase = null;
+    vp.addEventListener('gesturestart', function (e) { e.preventDefault(); gBase = pv.zoom || 1; });
+    vp.addEventListener('gesturechange', function (e) {
+      e.preventDefault();
+      if (gBase == null) gBase = pv.zoom || 1;
+      zoomAt(null, null, gBase * e.scale);
+    });
+    vp.addEventListener('gestureend', function () { gBase = null; });
+    $('pv-zoom').addEventListener('input', function () { zoomAt(null, null, parseFloat(this.value)); });
+    $('pv-zoom-reset').addEventListener('click', function () { zoomAt(null, null, 1); });
+    $('pv-zoom-out').addEventListener('click', function () { zoomAt(null, null, (pv.zoom || 1) / 1.25); });
+    $('pv-zoom-in').addEventListener('click', function () { zoomAt(null, null, (pv.zoom || 1) * 1.25); });
+    // F-13a：锁页面级原生捏合放大（WKWebView allowsMagnification 已在 Rust setup 开启，
+    // gesture 事件才会派发）；document 捕获阶段统一 preventDefault，照片缩放仍由上方 vp 处理器完成。
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) {
+      document.addEventListener(t, function (e) { e.preventDefault(); }, { capture: true, passive: false });
+    });
+    // 并排两半滚动位置互相同步（左右看同一区域）
+    var b1 = $('pv-f-before').parentElement, b2 = $('pv-f-after').parentElement;
+    b1.addEventListener('scroll', function () {
+      if (b2.scrollLeft !== b1.scrollLeft || b2.scrollTop !== b1.scrollTop) { b2.scrollLeft = b1.scrollLeft; b2.scrollTop = b1.scrollTop; }
+    });
+    b2.addEventListener('scroll', function () {
+      if (b1.scrollLeft !== b2.scrollLeft || b1.scrollTop !== b2.scrollTop) { b1.scrollLeft = b2.scrollLeft; b1.scrollTop = b2.scrollTop; }
+    });
+  })();
+
+  // ── 导入（选择器与外部拖放同服务，逐项结果） ──
+  async function handleResults(results) {
+    if (!results.length) { log('INFO', '已取消选择，库未变化'); return; }
+    var oldIds = state.luts.map(function (r) { return r.id; });
+    var nOk = results.filter(function (r) { return r.ok; }).length;
+    results.forEach(function (r) {
+      log(r.ok ? 'OK' : 'FAIL', (r.ok ? '✓ ' : '✗ ') + r.file + ' — ' + r.msg);
+    });
+    log(nOk === results.length ? 'OK' : 'WARN', '导入完成：成功 ' + nOk + ' / ' + results.length);
+    await loadLuts();
+    // F-13c：导入成功项同步追加到卡清单末位（待写入，不写卡）
+    if (state.cardMount && nOk) {
+      var added = state.luts.filter(function (r) { return oldIds.indexOf(r.id) < 0; });
+      for (var i = 0; i < added.length; i++) {
+        try {
+          state.tf = await mutateCard('card_list_append_local', { mount: state.cardMount, localId: added[i].id });
+          log('OK', '「' + added[i].name + '」已同步到卡清单末位（待写入，不写卡）');
+        } catch (e) { log('WARN', '同步到卡清单失败：' + e); }
+      }
+      if (added.length) { renderTf(); renderLib(); renderRing(); renderCard(); }
+    }
+  }
+  var picking = false;
+  async function doImport() {
+    if (picking) return;
+    var ok = await flushNow();
+    if (!ok) { log('WARN', '导入已取消：存在未保存改动，请先重试保存'); return; }
+    // F-14：与照片选择器同一条 WebKit 面板路径（原生 rfd 面板曾离屏空白、点击无响应）
+    $('lut-file').click();
+  }
+  function b64(buf) {
+    var u = new Uint8Array(buf), s = '';
+    for (var i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  $('lut-file').addEventListener('change', async function () {
+    var fs = Array.from(this.files); this.value = '';
+    if (!fs.length) return;
+    picking = true;
+    var btn = $('btn-pick');
+    btn.disabled = true;
+    btn.textContent = '导入中…';
+    setStatus('导入中…');
+    try {
+      var files = [];
+      for (var i = 0; i < fs.length; i++) {
+        var f = fs[i];
+        if (f.size > 64 * 1024 * 1024) { log('FAIL', '✗ ' + f.name + ' — 文件过大（>64MB），请改用拖入导入'); continue; }
+        files.push({ name: f.name, data: b64(await f.arrayBuffer()) });
+      }
+      if (files.length) {
+        var d = state.defaults;
+        var results = await invoke('import_bytes', { files: files, tone: d.tone, strength: d.strength, bw: d.bw });
+        await handleResults(results);
+      }
+    } catch (e) {
+      log('FAIL', '导入失败：' + e);
+    } finally {
+      picking = false;
+      btn.disabled = false;
+      btn.textContent = '选择 LUT 文件';
+      setStatus('就绪');
+    }
+  });
+  $('lut-file').addEventListener('cancel', function () { log('INFO', '已取消选择，库未变化'); });
+  $('btn-pick').addEventListener('click', function (e) { e.stopPropagation(); doImport(); });
+  $('drop').addEventListener('click', doImport);
+
+  // ── Tauri 事件：外部拖放 / 关闭闭环 ──
+  listen('drop-hover', function (e) { $('drop').classList.toggle('drop--over', !!e.payload); });
+  listen('import-results', function (e) { handleResults(e.payload || []); });
+  listen('close-requested', async function () {
+    if (writeBusy) { toast('请先完成或取消本次写入，再关闭窗口', 'warn'); return; }
+    state.pendingClose = true;
+    var ok = await flushNow();
+    if (ok) {
+      try { await invoke('confirm_close'); } catch (e) { log('FAIL', String(e)); }
+    } else {
+      showBanner($('save-banner-msg').textContent, true);
+    }
+  });
+
+  // ── 页面切换：先 flush，失败留在当前页 ──
+  var lastTab = 'tab-import';
+  document.querySelectorAll('input[name=menu]').forEach(function (r) {
+    r.addEventListener('change', async function () {
+      if (!r.checked) return;
+      var ok = await flushNow();
+      if (!ok) {
+        $(lastTab).checked = true;
+        log('WARN', '切换页面前保存失败，请先重试保存');
+        return;
+      }
+      lastTab = r.id;
+      if (r.id === 'tab-patch') setPatchModel(null);
+    });
+  });
+
+  // ── 启动：数据加载不等启动动画（V2：动画不得阻塞库加载） ──
+  syncEditor();
+  renderDirty();
+  setMode('split');
+  updateSlider(50);
+  invoke('preview_image_info').then(function (info) {
+    pv.imgVersion = info.version; setImageLabel(info.label);
+  }).catch(function () { /* 预览服务不可达时保留占位 */ });
+  log('READY', '工作台已启动，数据来自本地真实库');
+  log('INFO', '参数区作用于选中项；导入默认 直出 / 0.65 / 彩色（存为默认仅本会话）');
+  log('INFO', '预览与写卡共用 CC 表；卡内档位读取照片 Still1 槽，最终色彩需实拍核对');
+  loadInfo();
+  loadPatchInfo();
+  loadLuts();
+  loadCards();
+  setInterval(function () { if (!document.hidden && !writeBusy && !scanning) loadCards(true); }, 5000);
+  loadTrash();
+})();
+</script>
+</body>
+</html>

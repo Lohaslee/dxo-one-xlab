@@ -19,6 +19,8 @@ SHA256SUMS.txt  text eol=lf
 *.zip   binary
 *.exe   binary
 *.ico   binary
+*.icns  binary
+*.woff2 binary
 
 # GitHub 语言统计
 *.md  linguist-documentation

@@ -2,9 +2,9 @@
 # dxo-one-xlab · 发布白名单
 #
 # 策略：默认拒绝全部，只放行两个整包发布目录（Lightning-L口/ 与 USB-C-C口/）、
-#       自定义滤镜工具链、启动动画与仓库标准文件。
+#       自定义滤镜工具链、桌面客户端源码、启动动画与仓库标准文件。
 # 理由：本地工作区数 GB，含原厂固件、官方安装包、v26 整包与源码包、
-#       实机照片、实验档案、项目记忆、Rust 构建缓存与客户端源码（尚未发布）。
+#       实机照片、实验档案、项目记忆、Rust 构建缓存与客户端用户数据。
 #       黑名单极易漏项。目录分类详见本地文档 目录结构说明.md（不随仓库发布）。
 #
 # 客户端 / 工具链 / 研究文档就绪后，再逐项放行，不要直接删掉 /*。
@@ -24,6 +24,8 @@
 !Lightning-L口/
 !USB-C-C口/
 !自定义置入滤镜流程/
+!Rust重构/
+!AI执行交接-Mac与Windows安装包.md
 
 # ---- 第 3 层 A：Lightning-L口/ 整包（Build 72 滤镜补丁 + 触屏运行时依赖） ------
 # 卡文件 19 件（autoexec/ph_probe/ph_menu/touch_prefs + dxot/4 + DXO_FILTERS/11）
@@ -92,6 +94,58 @@ USB-C-C口/*
 !USB-C-C口/touch_prefs.bin
 !USB-C-C口/p*.bin
 
+# ---- 第 3 层 E：桌面客户端源码（只放行构建输入，不发布本地数据/取证档案） ----
+Rust重构/*
+!Rust重构/dxo-lut-tool/
+Rust重构/dxo-lut-tool/*
+!Rust重构/dxo-lut-tool/Cargo.toml
+!Rust重构/dxo-lut-tool/Cargo.lock
+!Rust重构/dxo-lut-tool/rust-toolchain.toml
+!Rust重构/dxo-lut-tool/README.md
+!Rust重构/dxo-lut-tool/dist/
+Rust重构/dxo-lut-tool/dist/*
+!Rust重构/dxo-lut-tool/dist/build-app.sh
+!Rust重构/dxo-lut-tool/dist/verify-source.sh
+!Rust重构/dxo-lut-tool/docs/
+Rust重构/dxo-lut-tool/docs/*
+!Rust重构/dxo-lut-tool/docs/SOURCE-REPRODUCIBILITY.md
+!Rust重构/dxo-lut-tool/dxo-app/
+Rust重构/dxo-lut-tool/dxo-app/*
+!Rust重构/dxo-lut-tool/dxo-app/Cargo.toml
+!Rust重构/dxo-lut-tool/dxo-app/build.rs
+!Rust重构/dxo-lut-tool/dxo-app/tauri.conf.json
+!Rust重构/dxo-lut-tool/dxo-app/src/
+!Rust重构/dxo-lut-tool/dxo-app/ui/
+!Rust重构/dxo-lut-tool/dxo-app/icons/
+!Rust重构/dxo-lut-tool/dxo-app/capabilities/
+!Rust重构/dxo-lut-tool/dxo-app/tests/
+!Rust重构/dxo-lut-tool/lut-core/
+Rust重构/dxo-lut-tool/lut-core/*
+!Rust重构/dxo-lut-tool/lut-core/Cargo.toml
+!Rust重构/dxo-lut-tool/lut-core/src/
+!Rust重构/dxo-lut-tool/lut-core/tests/
+!Rust重构/dxo-lut-tool/lut-core/resources/
+!Rust重构/dxo-lut-tool/lut-persist/
+Rust重构/dxo-lut-tool/lut-persist/*
+!Rust重构/dxo-lut-tool/lut-persist/Cargo.toml
+!Rust重构/dxo-lut-tool/lut-persist/src/
+!Rust重构/dxo-lut-tool/lut-camera/
+Rust重构/dxo-lut-tool/lut-camera/*
+!Rust重构/dxo-lut-tool/lut-camera/Cargo.toml
+!Rust重构/dxo-lut-tool/lut-camera/src/
+!Rust重构/dxo-lut-tool/lut-camera/examples/
+!Rust重构/dxo-lut-tool/dxo-cli/
+Rust重构/dxo-lut-tool/dxo-cli/*
+!Rust重构/dxo-lut-tool/dxo-cli/Cargo.toml
+!Rust重构/dxo-lut-tool/dxo-cli/src/
+!Rust重构/dxo-lut-tool/dxo-gui/
+Rust重构/dxo-lut-tool/dxo-gui/*
+!Rust重构/dxo-lut-tool/dxo-gui/Cargo.toml
+!Rust重构/dxo-lut-tool/dxo-gui/src/
+!Rust重构/dxo-lut-tool/tests/
+Rust重构/dxo-lut-tool/tests/*
+!Rust重构/dxo-lut-tool/tests/fixtures/
+
 # ---- 第 4 层：全局垃圾与隐私文件（任何层级都拒绝） --------------------------
 **/.DS_Store
 **/._*
@@ -121,7 +175,6 @@ USB-C-C口/*
 /Light口版本下这个/
 /成品/
 /成品2/
-/Rust重构/
 /工具/
 /.tmp_lut/
 /.workbuddy/
@@ -135,7 +188,8 @@ USB-C-C口/*
 #   实验/               实机照片、卡上日志、离线仿真产物、.venv
 #   00_备份/            存储卡逐文件备份（含 DCIM 与个人 touch_prefs）
 #   .workbuddy/         项目记忆（卡 UUID、设备号、本地路径）+ 开源准备资料
-#   Rust重构/ 工具/     客户端与工具链，尚未发布
+#   Rust重构/          仅按第 3 层 E 放行源码，data/ target/ AppBundle/ docs/verify/ 等仍隔离
+#   工具/              本地 Web 工具与研究脚本，未发布
 #   output/             客户端 UI 样张、直通/复合对比取证（含实机照片）
 #   generated-images/   AI 生成海报物料
 # ==============================================================================
@@ -146,4 +200,5 @@ USB-C-C口/*
 /机内滤镜补丁实施计划.md
 /小红书物料.html
 /小红书_*.png
+/群友需求台账.md
 /目录结构说明.md

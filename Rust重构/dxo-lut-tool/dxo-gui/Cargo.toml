@@ -1,0 +1,16 @@
+[package]
+name = "dxo-gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iced = { version = "0.13", features = ["image", "tokio"] }
+lut-core = { path = "../lut-core" }
+lut-persist = { path = "../lut-persist" }
+lut-camera = { path = "../lut-camera" }
+image = { version = "0.25", features = ["png", "jpeg", "tiff", "bmp", "webp"] }
+tokio = { version = "1", features = ["sync"] }
+rfd = "0.15"
+serde_json = "1"
+libc = "0.2"
+chrono = "0.4"

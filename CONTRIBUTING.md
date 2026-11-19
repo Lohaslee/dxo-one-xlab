@@ -18,17 +18,18 @@
 | 上传 v26 源码包 / 安装器 | 仓库附带 `Lightning-L口/`（含 5 件第三方触屏依赖）与 `USB-C-C口/` 安装包；一键安装器 `.exe`、源码 zip 一律不收。 |
 | 替换 `Lightning-L口/dxot/` 里的依赖版本 | 5 个文件须与来源包逐字节一致；换版本请先开 Issue 并更新署名与校验值。 |
 | 上传实拍原片与卡上日志 | 涉隐私与体积；如需说明问题，请裁剪成最小片段并去除 EXIF / 卷 UUID / 设备号。 |
-| 提交客户端代码 | 客户端仍在开发，尚未到发布阶段。 |
+| 外部客户端代码贡献 | 当前 macOS 客户端源码可个人复现；仍按仓库现有授权与外部 PR 规则，先开 Issue 讨论。 |
 
 ## 提交前自检
 
 `.gitignore` 是**白名单**：默认拒绝一切，只放行 `Lightning-L口/`、`USB-C-C口/`、
 `自定义置入滤镜流程/`（含 `stock/` 参照表与 `testdata/` 回归夹具）、
-启动动画与仓库标准文件。
+`Rust重构/dxo-lut-tool/` 的构建源码白名单、AI 安装包执行交接、启动动画与仓库标准文件。
+桌面客户端的 `target/`、`data/`、`AppBundle/`、`gen/` 和本地 `docs/verify/` 不发布。
 
 - [ ] 不含完整固件镜像、官方安装包、v26 源码包 / `.exe`（参照表与 v26 安装包按 THIRD_PARTY.md 已授权入仓的除外）
 - [ ] 不含 `.cube` 源文件；新增 CC 表须说明来源与许可状态
-- [ ] 不含 DNG / 实机 JPG 原片 / `console_debug` 日志 / 卡 UUID / 设备号
+- [ ] 不含用户 DNG / 实机 JPG 原片 / `console_debug` 日志 / 真实卡 UUID / 设备号；`dxo-app/tests/fixtures/` 的合成小图测试夹具除外
 - [ ] `Lightning-L口/touch_prefs.bin` 与 `USB-C-C口/touch_prefs.bin` 只能是**来源包自带的默认参数**，绝不能是某台相机上的个人参数
 - [ ] 不含本机绝对路径（`/Users/...`）、密钥、token、邮箱
 - [ ] `Lightning-L口/SHA256SUMS.txt`、`USB-C-C口/SHA256SUMS.txt` 已随二进制一起更新，各处 `shasum -a 256 -c` 全 OK

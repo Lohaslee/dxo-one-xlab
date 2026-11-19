@@ -11,7 +11,7 @@
 |---|---|---|
 | 固件 3.2.0 (`ecef5ef809`) 完整镜像 | DxO Labs | 不包含 |
 | `section_0..5` 分区镜像、其余 ROMFS 提取内容 | DxO Labs | 不包含 |
-| **CC 参照表 `Imx183_Cc_Still1.bin`**（17,536 B） | DxO Labs | **包含** —— `自定义置入滤镜流程/stock/`，从固件 ROMFS 提取的相机色彩表，作转换器参照。经发布者 2026-11-13 决定随包分发（原厂已停止维护该机型），仅供个人研究使用；**权利人可随时要求移除** |
+| **CC 参照表 `Imx183_Cc_Still1.bin`**（17,536 B） | DxO Labs | **包含** —— `自定义置入滤镜流程/stock/`，以及 `Rust重构/dxo-lut-tool/lut-core/resources/` 下同字节构建副本。从固件 ROMFS 提取的相机色彩表，作转换器参照。经发布者 2026-11-13 决定随包分发（原厂已停止维护该机型），仅供个人研究使用；**权利人可随时要求移除** |
 | 官方安装包、安装器 `.exe` | DxO Labs / 原版 v26 安装包 | 不包含 |
 | AmbaShell 命令（`t dxo`、`writel`、`alarm`、`savebin` 等） | DxO Labs / Ambarella | 仅在脚本中按命令名调用 |
 
@@ -83,7 +83,16 @@ v26 源码压缩包（第三方完整研究工程）及除上述参照表外的�
 `Lightning-L口/autoexec.ash`、`ph_probe.ash`、`ph_menu.bin` 及菜单融合逻辑
 为维护者原创，适用 [LICENSE](LICENSE) 第 1 节（All Rights Reserved）。
 
-## 6. 商标
+## 6. 桌面客户端依赖
+
+- `Rust重构/dxo-lut-tool/dxo-app/ui/fonts/` 附带 Bebas Neue 和 VT323 字体，
+  分别保留 `OFL-bebas-neue.txt` 和 `OFL-vt323.txt`，按 SIL Open Font License 1.1 分发。
+- Rust 第三方依赖（含 Tauri）在构建时由 Cargo 获取，不将它们视为维护者原创；
+  精确版本和校验值见 workspace Cargo.lock，许可证以各 crate 随附声明为准。
+- `dxo-app/tests/fixtures/` 是为 DNG JPEG 预览选择和 EXIF 旋转测试生成的小尺寸合成图，
+  不包含用户照片、相机卡内容或完整相机 RAW 文件。
+
+## 7. 商标
 
 「DxO」「DxO ONE」及相关标识为各自权利人的商标或注册商标。本仓库仅为描述
 适配对象而作指示性使用，不表示任何背书、关联或授权关系。
