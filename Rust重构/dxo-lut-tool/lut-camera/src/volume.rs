@@ -429,9 +429,15 @@ mod win {
         let mount_matches = got != 0
             && super::paths_equal(Path::new(&path), Path::new(&as_root(Path::new(&from_wide(&vol_root)))), true);
 
-        // 系统盘判定按卷 GUID 比对，避免把挂载在系统盘目录下的卷误判、也避免放行系统卷
-        let system_drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
-        let system_guid = volume_guid_path(Path::new(&format!("{}\\", system_drive.trim_end_matches(':'))));
+        // 系统盘判定按卷 GUID 比对，避免把挂载在系统盘目录下的卷误判、也避免放行系统卷。
+        // 盘符必须拼成 `C:\` 才取到 GUID（`C\` 是相对路径，取数失败会让这道闸门形同不存在）；
+        // 优先按 SystemRoot 所在卷判定，兼容系统装在挂载点目录 / VHD 启动时卷与 SystemDrive 字面不一致。
+        let system_drive = std::env::var_os("SystemDrive").unwrap_or_else(|| "C:".into());
+        let system_drive_root = format!("{}:\\", system_drive.to_string_lossy().trim_end_matches(':'));
+        let system_guid = std::env::var_os("SystemRoot")
+            .map(PathBuf::from)
+            .and_then(|p| containing_volume_guid(&p))
+            .or_else(|| containing_volume_guid(Path::new(&system_drive_root)));
         if system_guid.as_deref() == Some(guid.as_str()) {
             return Err("不能选择系统盘作为相机存储卡".into());
         }

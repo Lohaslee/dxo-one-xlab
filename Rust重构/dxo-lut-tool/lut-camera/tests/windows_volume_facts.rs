@@ -8,7 +8,15 @@ use lut_camera::volume::{assess_camera_card, card_identity, query_volume, sync_v
 use std::path::{Path, PathBuf};
 
 fn root_of(drive: &str) -> PathBuf {
-    PathBuf::from(format!("{}\\", drive.trim_end_matches(':')))
+    // 必须是 `X:\` 这种卷根写法：少一个反斜杠会退化成相对路径 `X\`，
+    // 系统调用取不到任何东西，判定结果只反映拼字符串错误而不是真实卷。
+    PathBuf::from(format!("{}:\\", drive.trim_end_matches(':')))
+}
+
+#[test]
+fn root_of_yields_a_volume_root_not_a_relative_path() {
+    assert_eq!(root_of("C:"), PathBuf::from("C:\\"));
+    assert_eq!(root_of("V"), PathBuf::from("V:\\"));
 }
 
 fn report(label: &str, root: &Path) {
