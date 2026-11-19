@@ -109,3 +109,48 @@ jobs:
           path: |
             Rust重构/dxo-lut-tool/dist/release/*Setup.exe
             Rust重构/dxo-lut-tool/dist/release/SHA256SUMS.txt
+      # 放在 upload-artifact 之后：这一项失败也不会让安装包证据消失。
+      # runner 就是一台真实 Windows 11 x64，静默安装/卸载属于「安装通过」的可复核证据；
+      # 但它没有交互桌面、也没有读卡器，因此不构成「硬件通过」，WebView2 干净机器场景也不在此覆盖。
+      - name: Silent install and uninstall smoke test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $rel = 'Rust重构/dxo-lut-tool/dist/release'
+          $exe = (Get-ChildItem $rel -Filter '*Setup.exe' | Select-Object -First 1).FullName
+          Write-Host ('安装包 ' + $exe + ' 大小 ' + (Get-Item $exe).Length)
+          Write-Host ('安装包 SHA256 ' + (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower())
+          Write-Host ('Authenticode ' + (Get-AuthenticodeSignature $exe).Status)
+          $marker = Join-Path $env:RUNNER_TEMP 'dxo-data-smoke'
+          if (Test-Path $marker) { Remove-Item $marker -Recurse -Force }
+          New-Item -ItemType Directory -Force $marker | Out-Null
+          $inst = Start-Process -FilePath $exe -ArgumentList '/S' -Wait -PassThru
+          Write-Host ('安装器退出码 ' + $inst.ExitCode)
+          if ($inst.ExitCode -ne 0) { throw 'NSIS 静默安装返回非 0' }
+          $dirs = Get-ChildItem $env:LOCALAPPDATA -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path (Join-Path $_.FullName 'Uninstall DXO-ONE-XLAB.exe') -or (Get-ChildItem $_.FullName -Filter 'uninst*.exe' -ErrorAction SilentlyContinue) }
+          if (-not $dirs) { throw '安装后在 %LOCALAPPDATA% 找不到带卸载器的安装目录' }
+          $dir = ($dirs | Select-Object -First 1).FullName
+          Write-Host ('安装目录 ' + $dir)
+          Get-ChildItem $dir -Recurse -File | Group-Object Extension | ForEach-Object { Write-Host ('  ' + $_.Name + ' x' + $_.Count) }
+          $main = Get-ChildItem $dir -Filter '*.exe' -Recurse |
+            Where-Object { $_.Name -notmatch 'uninst' } | Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $main) { throw '安装目录里找不到主程序 exe' }
+          Write-Host ('主程序 ' + $main.FullName + ' 大小 ' + $main.Length)
+          $env:DXO_DATA_DIR = $marker
+          $app = Start-Process -FilePath $main.FullName -PassThru
+          Start-Sleep -Seconds 12
+          $app.Refresh()
+          if ($app.HasExited) { throw ('启动后自行退出，退出码 ' + $app.ExitCode) }
+          Write-Host ('进程存活 PID ' + $app.Id + ' 主窗口标题 [' + $app.MainWindowTitle + ']')
+          Get-ChildItem $marker -Recurse -ErrorAction SilentlyContinue | Select-Object -First 8 | ForEach-Object { Write-Host ('  数据目录 ' + $_.FullName) }
+          Stop-Process -Id $app.Id -Force
+          Start-Sleep -Seconds 3
+          $un = Get-ChildItem $dir -Filter 'uninst*.exe' | Select-Object -First 1
+          $uninst = Start-Process -FilePath $un.FullName -ArgumentList '/S' -Wait -PassThru
+          Write-Host ('卸载器退出码 ' + $uninst.ExitCode)
+          Start-Sleep -Seconds 3
+          if (Test-Path $dir) { Write-Host '警告：卸载后安装目录仍存在（NSIS 常残留空目录），继续核对主程序' }
+          if (Test-Path $main.FullName) { throw '卸载后主程序仍在' }
+          if (-not (Test-Path $marker)) { throw '卸载把本机数据目录（滤镜库/卡备份所在）删掉了，与交付说明不符' }
+          Write-Host '结论：静默安装、启动、卸载均通过；本机数据目录按要求保留'
