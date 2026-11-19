@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rusqlite = { version = "0.32", features = ["chrono"] }
+# bundled：Windows 没有系统 sqlite3（CI 链接 LNK1181），且两个平台的安装包应跑同一颗
+# SQLite，避免 macOS 依赖 /usr/lib/libsqlite3.dylib 的版本漂移。
+rusqlite = { version = "0.32", features = ["chrono", "bundled"] }
 sha2 = "0.10"
 hex = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
