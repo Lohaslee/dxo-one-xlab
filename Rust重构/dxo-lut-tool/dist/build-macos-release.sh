@@ -94,7 +94,13 @@ else
   echo "  无 Developer ID：显式 ad-hoc 签名（identity=-），本包属于未公证测试包"
   SIGN_CONFIG=$(APPLE_IDENTITY="-" APPLE_HARDENED=false \
     python3 -c 'import json,os;print(json.dumps({"bundle":{"macOS":{"signingIdentity":os.environ["APPLE_IDENTITY"],"hardenedRuntime":os.environ["APPLE_HARDENED"]=="true"}}}))')
-  ( cd "$APP_DIR" && env -u APPLE_SIGNING_IDENTITY npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" --config "$SIGN_CONFIG" )
+  # 公证开关同样由环境变量决定：CI secrets 未配置时 APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID
+  # 仍是「已导出但为空」，tauri-cli 会据此进入公证分支并报
+  # 「Team ID must be at least 3 characters」（CI run 44476527218 macos-arm64）。
+  # ad-hoc 包一律不得公证，所以凭据变量一起从环境里删掉。
+  ( cd "$APP_DIR" && env -u APPLE_SIGNING_IDENTITY -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
+      -u APPLE_API_KEY -u APPLE_API_KEY_ID -u APPLE_API_ISSUER \
+      npx --yes "@tauri-apps/cli@$TAURI_CLI_VERSION" bundle --bundles app --target "$TRIPLE" --config "$SIGN_CONFIG" )
 fi
 
 BUNDLE_DIR="$PROJECT_DIR/target/$TRIPLE/release/bundle"

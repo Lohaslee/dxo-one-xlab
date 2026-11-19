@@ -295,7 +295,10 @@ fn staging_path(path: &Path) -> PathBuf {
 /// 从备份恢复目标：copy → fsync → 回读校验。
 fn restore_from(backup: &Path, path: &Path) -> Result<(), CameraError> {
     fs::copy(backup, path)?;
-    if let Ok(f) = fs::File::open(path) {
+    // FlushFileBuffers 要求句柄带 GENERIC_WRITE（Unix 的 fsync 对只读 fd 也合法），
+    // 用只读句柄刷盘在 Windows 上必然回 ACCESS_DENIED(5)，把「可以完成的成功回滚」
+    // 变成「回滚未完成，卡可能部分更新」。
+    if let Ok(f) = fs::OpenOptions::new().write(true).open(path) {
         fsync_file(&f)?;
     }
     let want = fs::read(backup)?;
