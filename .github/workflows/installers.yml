@@ -30,6 +30,39 @@ jobs:
         run: |
           node --test "Rust重构/dxo-lut-tool/dxo-app/tests/ui-state.test.cjs"
           (cd "Rust重构/dxo-lut-tool" && cargo test --locked -p lut-core -p lut-persist -p lut-camera -p dxo-app)
+      - name: Import Developer ID certificate (no-op unless APPLE_CERTIFICATE is set)
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          DXO_TEMP_KEYCHAIN_PASSWORD: ${{ secrets.DXO_TEMP_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
+            echo "未配置 APPLE_CERTIFICATE → 跳过证书导入；本轮按 ad-hoc 未公证路径构建"
+            exit 0
+          fi
+          # build-macos-release.sh 的前置校验要求身份真的出现在 `security find-identity -v -p codesigning` 里，
+          # 而 GitHub 托管 runner 的钥匙串默认没有任何签名身份：只配 APPLE_* 四个 secret 也会在
+          # 「钥匙串中没有 APPLE_SIGNING_IDENTITY 指定的 Developer ID 身份」这一步失败。
+          # 故正式签名路径还需要把 Developer ID 证书（.p12 的 base64）导入一个只存在于本次作业的临时钥匙串。
+          if [ -z "${DXO_TEMP_KEYCHAIN_PASSWORD:-}" ]; then
+            echo "已给 APPLE_CERTIFICATE 但缺 DXO_TEMP_KEYCHAIN_PASSWORD：临时钥匙串无法解锁，拒绝继续"; exit 1
+          fi
+          KC="$RUNNER_TEMP/dxo-codesign.keychain-db"
+          P12="$RUNNER_TEMP/dxo-developer-id.p12"
+          rm -f "$KC" "$P12"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$P12"
+          security create-keychain -p "$DXO_TEMP_KEYCHAIN_PASSWORD" "$KC"
+          security set-keychain-settings -lut 2160 "$KC"
+          security unlock-keychain -p "$DXO_TEMP_KEYCHAIN_PASSWORD" "$KC"
+          security import "$P12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KC"
+          # codesign / notarytool 在非交互会话里取私钥必须放开分区列表，否则报 errSecInternalError
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$DXO_TEMP_KEYCHAIN_PASSWORD" "$KC" >/dev/null
+          EXISTING="$(security list-keychains -d user | tr -d '"' | tr '\n' ' ' || true)"
+          security list-keychains -d user -s "$KC" $EXISTING
+          rm -f "$P12"
+          echo "已导入临时钥匙串 $KC；当前可见签名身份："
+          security find-identity -v -p codesigning | sed -E 's/^/  /'
       - name: Build DMG
         run: bash "Rust重构/dxo-lut-tool/dist/build-macos-release.sh"
       - uses: actions/upload-artifact@v4
