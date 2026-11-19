@@ -16,7 +16,8 @@
 | 给原生 C口相机安装触屏补丁 | [USB-C 触屏包与安装说明](USB-C-C口/README.md)，目前没有滤镜功能 |
 | 用电脑导入、预览和管理滤镜 | [桌面 App](#桌面-app) |
 | 用 Python 转换或替换自己的滤镜 | [自定义滤镜工具与流程](自定义置入滤镜流程/README.md) |
-| 继续开发 Mac / Windows 安装包 | [AI 执行交接文档](AI执行交接-Mac与Windows安装包.md) |
+| 安装 Mac / Windows 桌面版 | [安装包与使用说明](#安装包与使用说明) |
+| 从源码构建 Mac / Windows 安装包 | [桌面构建说明](Rust重构/dxo-lut-tool/README.md#构建安装包) |
 
 ## 支持哪些相机
 
@@ -83,7 +84,20 @@ Build 72 于 2026-11-17 记录相机实机用例 0–7 通过，包括十一档�
 - 预览与写卡共用 CC 表；加入卡清单后设置“相机名称”，确认写卡后才在相机生效。
 - 写卡与补丁安装包含只读预检、目标确认、本地备份和回读校验。
 
-**目前提供源码构建方式。** 已验证 macOS Apple Silicon；正式签名、公证的 Mac 安装包及 Windows 安装程序尚未发布，Windows 读卡和写入仍需适配。
+### 安装包与使用说明
+
+**当前提供 0.1.0 测试安装包，尚未正式签名分发。** 两包来自同一提交 `13b8c82`，可在 [GitHub Actions 构建记录](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44521929054) 的 Artifacts 中获取（需登录 GitHub，附件有保留期限）。安装包不随 Git 源码克隆；附件过期后可按[构建说明](Rust重构/dxo-lut-tool/README.md#构建安装包)重新生成。
+
+| 平台 | 安装包 / 附件 | 安装方式与限制 |
+| --- | --- | --- |
+| macOS Apple Silicon | `DXO-ONE-XLAB-0.1.0-macOS-arm64.dmg` / `macos-arm64-dmg` | 打开 DMG，拖入 Applications。最低版本声明为 macOS 11.0，目前仅在 macOS 26.1 arm64 实测；不支持 Intel Mac。ad-hoc 签名、未公证，下载后可能被 Gatekeeper 拦截 |
+| Windows x64 | `DXO-ONE-XLAB-0.1.0-Windows-x64-Setup.exe` / `windows-x64-setup` | 运行安装器，按当前用户安装。已在 Windows 11 x64 CI 验证；Windows 10 尚未实测。未签名，可能出现 SmartScreen 提示；缺少 WebView2 时首次安装需要联网 |
+
+解压附件后先核对附带的 `SHA256SUMS.txt`；具体校验方法、系统提示处理、升级与数据目录见[桌面安装说明](Rust重构/dxo-lut-tool/README.md#安装与升级)。
+
+2026-11-19 验证：两端构建及回归通过（每端 23 项 UI 测试；macOS 152 项 Rust 测试通过、4 项忽略）；Mac 安装启动及同包覆盖后的数据文件校验通过，Windows 静默安装、启动、同包覆盖、卸载及中文/空格安装路径验证通过。**尚未验证旧版到新版的数据迁移、缺少 WebView2 的干净 Windows 首装、Windows 交互体验，以及两端 App 真卡写入与相机实拍色彩一致性。**
+
+### 从源码运行
 
 安装 Xcode Command Line Tools、Rust/rustup、Python 3 和 Node.js 22 后：
 
@@ -96,7 +110,7 @@ open dxo-app/AppBundle/DXO-ONE-XLAB.app
 
 首次构建需要联网获取工具链与依赖；生成的 App 使用本地 ad-hoc 签名。完整前置要求、数据目录与单独构建命令见 [桌面源码 README](Rust重构/dxo-lut-tool/README.md)。
 
-2026-11-19 的源码复现验收：19 项 UI 测试、132 项 Rust 测试通过，4 项忽略；19 件补丁资源校验、干净源码构建和脱离源码目录的独立启动通过。**这不包含 App 真卡安装、相机开机或最终实拍色彩一致性验收**，详见 [源码复现记录](Rust重构/dxo-lut-tool/docs/SOURCE-REPRODUCIBILITY.md)。
+源码构建保留 19 件补丁资源校验、回归测试和独立 App 构建入口；早期干净源码复现过程见 [源码复现记录](Rust重构/dxo-lut-tool/docs/SOURCE-REPRODUCIBILITY.md)，当前安装包状态以上述构建记录为准。
 
 ## 使用自己的滤镜
 
@@ -112,7 +126,7 @@ open dxo-app/AppBundle/DXO-ONE-XLAB.app
 | [USB-C 安装说明](USB-C-C口/README.md) | 原生 C口 v26 触屏包 |
 | [版本与维护记录](Lightning-L口/版本与维护记录.md) | 历史 Build、撤回原因、相机端验收与诊断日志 |
 | [桌面源码 README](Rust重构/dxo-lut-tool/README.md) | 构建、测试、资源和数据目录 |
-| [安装包 AI 执行交接](AI执行交接-Mac与Windows安装包.md) | Mac DMG 与 Windows 适配的后续任务 |
+| [安装包 AI 执行交接](AI执行交接-Mac与Windows安装包.md) | 最初的交付要求与验收约定；当前进展见桌面 README |
 | [贡献说明](CONTRIBUTING.md) | 问题反馈与提交规则 |
 
 问题反馈请到 [GitHub Issues](https://github.com/Lohaslee/dxo-one-xlab/issues)，注明相机固件、补丁 Build、电脑系统与复现步骤；不要上传照片原片、存储卡备份或含个人信息的日志。

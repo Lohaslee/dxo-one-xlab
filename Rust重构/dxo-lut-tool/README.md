@@ -4,22 +4,50 @@
 
 ## 支持范围
 
-- 当前验证平台：macOS 26.1 / Apple Silicon（arm64）。Intel Mac 和更早 macOS 尚未验证。
-- Windows / Linux 不是本次支持平台；读卡与补丁安装仍依赖 macOS `diskutil`、`/Volumes` 和 Unix 同步 API。
-- 输出为本地可运行 `.app`，使用 ad-hoc 签名。没有正式 Developer ID 签名、公证或 DMG/EXE 安装程序。
+- macOS：提供 Apple Silicon（arm64）DMG，最低系统版本声明为 11.0，已在 macOS 26.1 实测。Intel Mac 和更早系统未验证。
+- Windows：提供 x64 NSIS 安装程序，已在 Windows 11 GitHub 托管 runner 验证安装、启动、同包重装和卸载；Windows 10 与交互式桌面体验未验证。卷探测、路径及刷盘已有 Windows 分支，真实读卡器与相机卡写入仍待验收。
+- 当前为 **0.1.0 测试包**：Mac 使用 ad-hoc 签名、未公证；Windows 未签名。Linux 不在本次发布范围。
 - 软件预览、保存及写卡复用同源 CC 表；不等同于已经完成相机实拍最终色彩一致性验证。
+
+## 安装与升级
+
+两包由提交 `13b8c82` 的[同一次 CI](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44521929054)构建。登录 GitHub 后从 Artifacts 下载 `macos-arm64-dmg` 或 `windows-x64-setup`，解压后核对附件中的 `SHA256SUMS.txt`。附件有保留期限，仓库不跟踪安装包二进制；过期可从源码重新构建。
+
+macOS 校验：
+
+```bash
+shasum -a 256 -c SHA256SUMS.txt
+```
+
+Windows PowerShell 校验（将结果与清单中的对应条目核对）：
+
+```powershell
+Get-FileHash .\DXO-ONE-XLAB-0.1.0-Windows-x64-Setup.exe -Algorithm SHA256
+```
+
+- **Mac 安装**：打开 DMG，将 App 拖入 Applications，再从“应用程序”打开。若 Gatekeeper 拦截，在确认来源和哈希后，到“系统设置 → 隐私与安全性”检查“仍要打开”选项；是否允许取决于系统及管理策略，无需关闭全局安全保护。
+- **Windows 安装**：运行 Setup.exe，按当前用户安装。未签名包可能出现 SmartScreen 提示；确认来源和哈希后，若系统提供“更多信息 → 仍要运行”，可从该入口继续。包内为 WebView2 在线引导程序，缺少运行时时首次安装需联网，不能保证干净电脑离线首装。
+- **升级**：先退出 App，备份下表中的数据目录；Mac 覆盖旧 App，Windows 运行新安装器。当前验证的是同一 0.1.0 包重装，不代表已验证跨版本迁移。
+- **卸载**：Mac 将 App 移到废纸篓；Windows 从系统“已安装的应用”卸载。默认保留本地数据。Windows 卸载界面的“删除应用数据”选项尚未验证能清除自定义滤镜目录；需要彻底清除时，先备份，再手动删除下表目录。
+
+| 平台 | 默认数据目录 |
+| --- | --- |
+| macOS | `~/Library/Application Support/DXO-ONE-XLAB/` |
+| Windows | `%LOCALAPPDATA%\DXO-ONE-XLAB\` |
+
+目录包含滤镜数据库、资源、预览照片副本、日志与 `card_backups/`；不要随安装包分发。电脑 App 安装与 App 内“更新补丁”（写入相机卡）是两个流程。
 
 ## 前置工具
 
-1. macOS 的 Xcode Command Line Tools（`xcode-select --install`），或可用的完整 Xcode。需提供 clang、macOS SDK、`codesign` 等工具。
-2. Rust/rustup；本目录 `rust-toolchain.toml` 固定 **1.99.1**，首次进入构建会获取该工具链。`Cargo.lock` 固定第三方 Rust 依赖，所有发布构建使用 `--locked`。
-3. Python 3（构建脚本的路径处理）、Node.js **22**（仅 UI 测试；App 运行不需要 Node）。
-4. 系统 SQLite 3 开发接口（当前 rusqlite 不启用 bundled；已在 macOS SDK/系统库验证）。
+1. macOS 的 Xcode Command Line Tools（`xcode-select --install`），或可用的完整 Xcode。Windows 需 Visual Studio Build Tools 的 C++ 桌面开发组件、Windows SDK、MSVC Rust 工具链及 Git Bash。
+2. Rust/rustup；本目录 `rust-toolchain.toml` 固定 **1.99.1**，首次进入构建会获取该工具链；Mac 安装包脚本的工具链选择见下文。`Cargo.lock` 记录第三方 Rust 依赖版本，需随源码保留。
+3. Python 3（构建脚本的路径处理）、Node.js **22**（UI 测试及通过 npx 调用打包 CLI；App 运行不需要 Node）。
+4. SQLite 已启用 `bundled`，两端从源码编译，不需另装系统 SQLite 开发库。
 
-当前前端直接嵌入 `dxo-app/ui/`，没有 npm 安装步骤，也不需要额外安装 `cargo tauri`。
-首次构建需要网络获取工具链和依赖；构建后的 App 资源自包含，不依赖网络或源码目录。
+当前前端直接嵌入 `dxo-app/ui/`，没有前端 npm 安装步骤，也不需要全局安装 `cargo tauri`；安装包脚本通过 npx 获取固定版本 Tauri CLI（默认 2.12.6）。
+首次构建需要网络获取工具链和依赖；构建后的 App 资源自包含，不依赖源码目录。Windows 运行另需 WebView2。
 
-## 从全新 clone 复现
+## 从全新 clone 复现（macOS）
 
 ```bash
 git clone https://github.com/Lohaslee/dxo-one-xlab.git
@@ -42,6 +70,32 @@ bash dist/build-app.sh
 
 开发调试可使用 `cargo run --locked -p dxo-app`；当前正式复现入口仍是上述 release 脚本。
 不同机器的 SDK、链接器与签名会影响二进制字节；这里验证的是同源码可构建并恢复相同功能，不承诺二进制逐字节相同。
+
+## 构建安装包
+
+保留完整仓库结构，在本目录分别于原生系统运行；不要在 Mac 上交叉打包后将其当作 Windows 安装验收。
+
+macOS Apple Silicon：
+
+```bash
+node --test dxo-app/tests/ui-state.test.cjs
+cargo test --locked -p lut-core -p lut-persist -p lut-camera -p dxo-app
+bash dist/build-macos-release.sh
+```
+
+Windows x64（Git Bash，确保 MSVC 构建工具可用）：
+
+```bash
+node --test dxo-app/tests/ui-state.test.cjs
+cargo test --locked -p lut-core -p lut-persist -p lut-camera -p dxo-app
+bash dist/build-windows-release.sh
+```
+
+产物位于 `dist/release/`，各自附带 SHA-256 清单；两平台的文件汇总到同一交付目录后应重新生成完整清单。回归测试与 `build-app.sh` 使用 `--locked`；安装包脚本经 Tauri CLI 构建，未显式传入该选项。SDK、工具链及签名环境也会影响二进制字节。Mac 安装包脚本默认选择 `stable` 工具链，可用 `RUSTUP_TOOLCHAIN` 显式指定版本。
+
+也可手动运行仓库的 [installers workflow](https://github.com/Lohaslee/dxo-one-xlab/actions/workflows/installers.yml)，两端分别在原生 runner 构建并上传附件，不自动创建公开 Release。未配置签名凭据时输出测试包；正式分发需另行完成 Developer ID 公证及 Windows Authenticode 签名。
+
+2026-11-19 的 `13b8c82` 构建两端回归均通过，每端 23 项 UI 测试；macOS Rust 152 项通过、4 项忽略。Mac 本地安装复测通过，同包覆盖前后生成的数据文件哈希一致；Windows CI 已验证静默安装、启动、同包覆盖后的数据库哈希、卸载后数据库仍在，以及中文/空格安装路径。测试使用隔离数据目录，未预置完整的用户滤镜、照片和备份；旧版迁移、默认数据路径下卸载、干净 Windows 首装、真卡写入仍需补验。
 
 ## 不能遗漏的构建资源
 
@@ -77,7 +131,7 @@ App 的 `build.rs` 从仓库根 `Lightning-L口/SHA256SUMS.txt` 生成内嵌文�
 ## 运行数据与旧版接口
 
 当前 Tauri App 在界面扫描并选择存储卡，**不绑定开发者的卡 UUID**。
-本地数据默认保存在 `~/Library/Application Support/DXO-ONE-XLAB/`，包括数据库、资源、日志和 `card_backups/`；不随仓库或 App 打包。
+本地数据目录见上方[安装与升级](#安装与升级)，不随仓库或 App 打包。
 需要隔离试用时，直接启动可执行文件并设置独立目录：
 
 ```bash
@@ -99,7 +153,7 @@ DXO_DATA_DIR="$(mktemp -d)" dxo-app/AppBundle/DXO-ONE-XLAB.app/Contents/MacOS/dx
 
 真卡安装必须在 App 内人工确认。源码复现测试使用临时目录，**不代表已经验证过全新 App 的真卡安装和相机开机**。
 本次源码复现证据及剩余验证范围见 [SOURCE-REPRODUCIBILITY.md](docs/SOURCE-REPRODUCIBILITY.md)。
-后续跨平台安装包任务见 [AI 执行交接](../../AI执行交接-Mac与Windows安装包.md)。
+最初的跨平台交付要求见 [AI 执行交接](../../AI执行交接-Mac与Windows安装包.md)；当前支持范围与构建入口以本 README 为准。
 
 ## 单独运行测试
 
