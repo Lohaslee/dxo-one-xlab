@@ -63,28 +63,26 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force C:\dxo-vhd | Out-Null
-          foreach ($t in @(
-              @{ name = 'card32'; fs = 'FAT32'; letter = 'V' },
-              @{ name = 'cardex'; fs = 'exFAT'; letter = 'W' })) {
-            $vhd = "C:\dxo-vhd\$($t.name).vhd"
-            @"
-create vdisk file="$vhd" maximum=256 type=expandable
-select vdisk file="$vhd"
-attach vdisk
-convert mbr
-create partition primary
-format quick fs=$($t.fs) label="DXO$($t.name)"
-assign letter=$($t.letter)
-"@ | Set-Content -Encoding ascii "C:\dxo-vhd\$($t.name).txt"
-            diskpart /s "C:\dxo-vhd\$($t.name).txt"
+          foreach ($t in @(@{ name = 'card32'; fs = 'FAT32'; letter = 'V' }, @{ name = 'cardex'; fs = 'exFAT'; letter = 'W' })) {
+            $vhd = 'C:\dxo-vhd\' + $t.name + '.vhd'
+            $script = 'C:\dxo-vhd\' + $t.name + '.txt'
+            @(
+              ('create vdisk file="{0}" maximum=256 type=expandable' -f $vhd),
+              ('select vdisk file="{0}"' -f $vhd),
+              'attach vdisk',
+              'convert mbr',
+              'create partition primary',
+              ('format quick fs={0} label="DXO{1}"' -f $t.fs, $t.name),
+              ('assign letter={0}' -f $t.letter)
+            ) | Set-Content -Encoding ascii $script
+            diskpart /s $script
           }
-          Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DeviceID -in 'V:','W:' } |
-            Select-Object DeviceID, DriveType, FileSystem | Format-Table -AutoSize | Out-String -Width 120
+          Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DeviceID -in 'V:', 'W:' } | Select-Object DeviceID, DriveType, FileSystem | Format-Table -AutoSize | Out-String -Width 120
       - name: Windows runtime volume evidence
         shell: bash
         run: |
           cd "Rust重构/dxo-lut-tool"
-          echo '--- 仅系统卷与盘符枚举（无测试卷环境下的下限） ---'
+          echo '--- 下限：系统卷与盘符枚举（不依赖测试卷） ---'
           cargo test --locked -p lut-camera --test windows_volume_facts -- --nocapture
           echo '--- FAT32 虚拟卷（V:） ---'
           DXO_TEST_VOLUME=V DXO_TEST_FSTYPE=msdos cargo test --locked -p lut-camera --test windows_volume_facts -- --nocapture test_volume_reports
@@ -95,13 +93,11 @@ assign letter=$($t.letter)
         shell: pwsh
         run: |
           foreach ($n in 'card32', 'cardex') {
-            $vhd = "C:\dxo-vhd\$n.vhd"
+            $vhd = 'C:\dxo-vhd\' + $n + '.vhd'
             if (Test-Path $vhd) {
-              @"
-select vdisk file="$vhd"
-detach vdisk
-"@ | Set-Content -Encoding ascii "C:\dxo-vhd\detach-$n.txt"
-              diskpart /s "C:\dxo-vhd\detach-$n.txt"
+              $script = 'C:\dxo-vhd\detach-' + $n + '.txt'
+              @(('select vdisk file="{0}"' -f $vhd), 'detach vdisk') | Set-Content -Encoding ascii $script
+              diskpart /s $script
             }
           }
       - name: Build NSIS setup
