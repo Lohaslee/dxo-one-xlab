@@ -11,7 +11,9 @@
 
 ## 安装与升级
 
-两包由提交 `13b8c82` 的[同一次 CI](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44521929054)构建，已上传到 [GitHub Releases](https://github.com/Lohaslee/dxo-one-xlab/releases/tag/v0.1.0)。按系统下载 DMG 或 Setup.exe，同时下载 `SHA256SUMS.txt`，核对其中对应文件的值。Release 另附对应源码包和 `INSTALL.md`；仓库不跟踪安装包二进制。
+当前请下载 [0.1.0 存储卡识别修复版](https://github.com/Lohaslee/dxo-one-xlab/releases/tag/v0.1.0-card-fix.1)。该测试版修复 Windows 缺少设备编号时的误判，两个安装包来自 [构建 44846609360](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44846609360)，对应构建提交 `6a19c0c`。下载所需安装包和同页的 SHA256SUMS.txt 进行校验。
+
+原测试版的两包由提交 `13b8c82` 的[同一次 CI](https://github.com/Lohaslee/dxo-one-xlab/actions/runs/44521929054)构建，已上传到 [GitHub Releases](https://github.com/Lohaslee/dxo-one-xlab/releases/tag/v0.1.0)。按系统下载 DMG 或 Setup.exe，同时下载 `SHA256SUMS.txt`，核对其中对应文件的值。Release 另附对应源码包和 `INSTALL.md`；仓库不跟踪安装包二进制。
 
 macOS 校验：
 
