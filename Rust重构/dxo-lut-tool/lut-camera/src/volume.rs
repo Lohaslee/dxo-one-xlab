@@ -28,6 +28,7 @@ pub struct VolumeFacts {
     /// 补充文件系统名，用于区分 FAT32 与 FAT16
     pub fs_name: String,
     pub free_bytes: Option<u64>,
+    /// 设备编号，Windows 的底层查询失败时可能为空。
     pub device: String,
     pub volume_uuid: String,
     /// 卷标（GetVolumeInformationW / diskutil Volume Name），仅用于列表展示
@@ -51,7 +52,7 @@ pub fn assess_camera_card(f: &VolumeFacts) -> Result<(), String> {
     if f.free_bytes.is_none() {
         return Err("无法读取卡剩余空间".into());
     }
-    if f.device.is_empty() || f.volume_uuid.is_empty() {
+    if f.volume_uuid.trim().is_empty() {
         return Err("存储卡身份信息不完整".into());
     }
     Ok(())
@@ -474,6 +475,7 @@ mod win {
         let drive_type = unsafe { GetDriveTypeW(wide(&path).as_ptr()) };
         // 总线与磁盘编号只能从卷设备路径查询（盘符路径上会失败）
         let bus = bus_type(&guid);
+        // 设备编号只用于展示。确认写入时用 card_identity 复核 GUID、卷序列号和目录 ID。
         let device = device_number(&guid).unwrap_or_default();
 
         Ok(VolumeFacts {
@@ -576,7 +578,9 @@ mod tests {
         assert!(assess_camera_card(&f).is_err(), "卷身份不完整");
         let mut f = facts();
         f.device = String::new();
-        assert!(assess_camera_card(&f).is_err(), "设备标识不完整");
+        assert!(assess_camera_card(&f).is_ok(), "卷标识可用时，不应因可选设备编号缺失而拒绝预检");
+        f.internal = Some(true);
+        assert!(assess_camera_card(&f).is_err(), "缺少设备编号时仍要拒绝非外置介质");
     }
 
     #[test]
