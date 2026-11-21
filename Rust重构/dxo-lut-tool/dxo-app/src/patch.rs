@@ -50,6 +50,9 @@ fn disk_from_plist(v: &plist::Value, mount: &str) -> Result<Disk, String> {
         label: s("Volume Name"),
     };
     lut_camera::volume::assess_camera_card(&facts)?;
+    if facts.device.trim().is_empty() {
+        return Err("存储卡身份信息不完整：无法读取 macOS 设备标识".into());
+    }
     Ok(Disk { device: facts.device, uuid: facts.volume_uuid, filesystem: facts.fs_type, free: facts.free_bytes.unwrap_or(0) })
 }
 
@@ -300,6 +303,9 @@ mod tests {
             <key>VolumeFreeSpace</key><integer>9999999</integer></dict></plist>"#).unwrap();
         assert!(disk_from_plist(&v, "/Volumes/CARD").is_ok());
         assert!(disk_from_plist(&v, "/Volumes/OTHER").is_err());
+        let device = v.as_dictionary_mut().unwrap().remove("DeviceIdentifier").unwrap();
+        assert!(disk_from_plist(&v, "/Volumes/CARD").is_err_and(|e| e.contains("macOS 设备标识")));
+        v.as_dictionary_mut().unwrap().insert("DeviceIdentifier".into(), device);
         for (key, bad) in [("Internal", plist::Value::Boolean(true)), ("WritableVolume", plist::Value::Boolean(false)),
             ("FilesystemType", plist::Value::String("apfs".into())), ("WritableMedia", plist::Value::Boolean(false))] {
             let old = v.as_dictionary_mut().unwrap().insert(key.into(), bad).unwrap();
